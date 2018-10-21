@@ -17,9 +17,18 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
-static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static bool load (char *argv[], int argc, void (**eip) (void), void **esp);
+
+/*struct to keep track of the arg vector*/
+struct args
+{
+  char *argument;
+  void *addr;
+  struct list_elem elem;
+};
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -38,7 +47,6 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-  /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
@@ -51,6 +59,7 @@ static void
 start_process (void *file_name_)
 {
   char *file_name = file_name_;
+  printf("INSIDE STARt PROCESS %s\n", file_name);
   struct intr_frame if_;
   bool success;
 
@@ -59,7 +68,49 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+
+/*Miles Driving
+  first make a copy of the file name*/
+  char* cmd_line  = (char *) malloc (sizeof (char) * (strlen (file_name) + 1));
+  strlcpy(cmd_line, file_name, strlen (file_name) + 1);
+  /*tokenize arguments and pass that into the new thread.
+  keep arguments in a list */
+  
+  struct list args_list;
+  list_init (&args_list);
+
+  char *token, *save_ptr;
+  int count = 0;
+  // go through the command line and start adding arguments into our list
+  for (token = strtok_r (cmd_line, " ", &save_ptr); token != NULL;
+      token = strtok_r (NULL, " ", &save_ptr))
+  {
+    struct args *cur = (struct args *) malloc (sizeof (struct args));
+    cur->argument = token;
+    count += strlen(token) + 1;
+    // prepare args by adding to list
+    list_push_back (&args_list, &cur->elem);
+  }
+  /*args are in a list now, convert to the new string*/
+  int i;
+  int argc = list_size (&args_list);
+  char *arg_vector[argc];
+  struct list_elem *iterator;
+  //printf("argc: %d\n", argc);
+  for (i = 0; i < argc; i++)
+  {
+    iterator = list_pop_front (&args_list);
+    struct args *cur = list_entry (iterator, struct args, elem);
+    char *argument = cur->argument;
+    arg_vector[i] = argument;
+  }
+/*now arg_vector contains the argument vector */
+  int j;
+  for (j = 0; j < argc; j++)
+    printf("arg_vector: %s: %d\n", arg_vector[j], strlen(arg_vector[j]));
+
+
+  success = load ( arg_vector, argc, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -84,10 +135,14 @@ start_process (void *file_name_)
    immediately, without waiting.
 
    This function will be implemented in problem 2-2.  For now, it
-   does nothing. */
+   does nothing. a*/
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+  printf("in wait\n");
+  while(1){
+
+  }
   return -1;
 }
 
@@ -195,7 +250,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack (char* argv[], int argc, void **esp);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -206,8 +261,9 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
 bool
-load (const char *file_name, void (**eip) (void), void **esp) 
+load (char *argv[], int argc, void (**eip) (void), void **esp) 
 {
+  printf("INSIDE LOAD\n");
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
   struct file *file = NULL;
@@ -217,15 +273,21 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
-  if (t->pagedir == NULL) 
-    goto done;
+  if (t->pagedir == NULL)
+  {
+      printf("pagedir == NULL\n");
+      goto done;
+  } 
+
   process_activate ();
 
   /* Open executable file. */
-  file = filesys_open (file_name);
+
+  printf("!!Loading file %s with arg %s!!\n", argv[0], argv[1]);
+  file = filesys_open (argv[0]);
   if (file == NULL) 
     {
-      printf ("load: %s: open failed\n", file_name);
+      printf ("load: %s: open failed\n", argv[0]);
       goto done; 
     }
 
@@ -238,7 +300,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phentsize != sizeof (struct Elf32_Phdr)
       || ehdr.e_phnum > 1024) 
     {
-      printf ("load: %s: error loading executable\n", file_name);
+      printf ("load: %s: error loading executable\n", argv[0]);
       goto done; 
     }
 
@@ -249,11 +311,19 @@ load (const char *file_name, void (**eip) (void), void **esp)
       struct Elf32_Phdr phdr;
 
       if (file_ofs < 0 || file_ofs > file_length (file))
-        goto done;
+      {
+          printf("file_ofs < 0\n");
+          goto done;
+      }
+        
       file_seek (file, file_ofs);
 
       if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
-        goto done;
+      {
+            printf("file_read != phdr\n");
+           goto done;
+      }
+       
       file_ofs += sizeof phdr;
       switch (phdr.p_type) 
         {
@@ -267,6 +337,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
         case PT_DYNAMIC:
         case PT_INTERP:
         case PT_SHLIB:
+          printf("PT_SHLIB\n");
           goto done;
         case PT_LOAD:
           if (validate_segment (&phdr, file)) 
@@ -293,17 +364,28 @@ load (const char *file_name, void (**eip) (void), void **esp)
                 }
               if (!load_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))
-                goto done;
+                                 {
+                                   printf("!load_seg\n");
+                                    goto done;
+                                 }
+                                
+                
             }
           else
-            goto done;
+          {
+              printf("else\n");
+              goto done;
+          }
+            
           break;
         }
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp))
+  printf("above call to setup stack!\n");
+  if (!setup_stack (argv, argc, esp))
     goto done;
+  
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
@@ -311,6 +393,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   success = true;
 
  done:
+ printf("UNDER DONE\n");
+ printf("ABOVE HEX_DUMP\n");
+ //hex_dump((int)esp, esp, ((int)PHYS_BASE - (int)esp), true);
   /* We arrive here whether the load is successful or not. */
   file_close (file);
   return success;
@@ -427,8 +512,9 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp) 
+setup_stack (char *argv[], int argc, void **esp) 
 {
+  printf("INSIDE SETUP_STACK %d\n", argc);
   uint8_t *kpage;
   bool success = false;
 
@@ -437,11 +523,89 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
+      {
+        printf("successful install_page, pushing args to stack\n");
         *esp = PHYS_BASE;
+        char *esp_cpy = PHYS_BASE;
+        // keep arguments in a list
+        int64_t count = 0;
+        // go through the command line and start adding arguments into our list
+        int arg_addrs[argc];
+        int i;
+
+        for (i = 0; i < argc; i++)
+        {
+            
+            printf("arg: %s  size %d\n", argv[i], strlen(argv[i]));
+            // count number of bytes needed
+            count += strlen (argv[i]) + 1;
+            // check for page size
+            if (count > PGSIZE)
+              return false;
+            // = &argv[i]
+            printf("%x\n", (int)esp_cpy);
+            // prepare args by adding to list
+            esp_cpy -= strlen (argv[i]) + 1;
+            arg_addrs[i] = (int) esp_cpy;
+            memcpy (esp_cpy, (void *) argv[i], strlen (argv[i]) + 1);
+            printf("arg_addr %x\n", arg_addrs[i]);
+        }
+
+        int zero = 0;
+        //align on 4 byte word
+        int word_align = ((unsigned int)esp_cpy % 4);
+        printf("word align %d\n", word_align);
+        int j;
+        for (j = 0; j < word_align; j++)
+        {
+          esp_cpy -= 1;
+          count++;
+        }
+
+        // check size again
+        if (count > PGSIZE)
+          return false;
+        printf("sentinel\n");
+        // sentinel 
+        esp_cpy -= sizeof (char *);
+        
+        //addresses
+        int k;
+        for (k = argc - 1; k >= 0; k--)
+        {
+          //printf("%x\n", (int)arg_addrs[k]);
+          esp_cpy -= sizeof (char*);
+          memcpy(esp_cpy, &arg_addrs[k], sizeof (char*));
+        }
+
+        // argument
+        void *copy_of_esp = esp_cpy;
+        esp_cpy -= sizeof (char **);
+        memcpy (esp_cpy, &copy_of_esp, sizeof (char *));
+
+        // argc
+        esp_cpy -= sizeof (int);
+        // using list size since we pushed our arguments into a list
+        memcpy (esp_cpy, &argc, sizeof (int));
+
+        // return address
+        esp_cpy -= sizeof (void *);
+        memcpy (esp_cpy, &zero, sizeof (void *));
+        *esp = esp_cpy;
+        hex_dump((int*)esp_cpy, (int*)esp_cpy, (int)(PHYS_BASE - (int)esp_cpy), true);
+      }
       else
         palloc_free_page (kpage);
     }
+    printf("status %d\n", success);
+    printf("PHYS_BASE: %x\n", (int)PHYS_BASE);
+    
+    printf("status %d\n", success);
+  //*esp = PHYS_BASE;
+  
+ 
   return success;
+  
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel
