@@ -13,11 +13,12 @@
 #include "pagedir.c"
 
 
+
 static void syscall_handler (struct intr_frame *);
 
 static bool ptr_is_valid (void *ptr);
 
-static void syscall_halt_handler ();
+static void syscall_halt_handler (void);
 static void syscall_exit_handler (struct intr_frame *f);
 static void syscall_exec_handler (struct intr_frame *f);
 static void syscall_wait_handler (struct intr_frame *f);
