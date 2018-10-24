@@ -19,7 +19,7 @@ static void syscall_handler (struct intr_frame *);
 
 static bool ptr_is_valid (void *ptr);
 
-static void syscall_halt_handler ();
+static void syscall_halt_handler (void);
 static void syscall_exit_handler (struct intr_frame *f);
 static void syscall_exec_handler (struct intr_frame *f);
 static void syscall_wait_handler (struct intr_frame *f);
@@ -224,11 +224,11 @@ static void syscall_read_handler (struct intr_frame *f)
 {
   int *my_esp = (int*) f->esp;
   // Check second to last arg's content and then last arg
-  if (ptr_is_valid (*(my_esp + 6)) && ptr_is_valid ((void*) (my_esp + 7)))
+  if (ptr_is_valid ((void*) (my_esp + 6)) && ptr_is_valid ((void*) (my_esp + 7)))
   {
     if (*(my_esp + 5) == 0)
     { 
-      uint8_t *buff_ptr = *(my_esp + 6); // ... i think + 6
+      uint8_t *buff_ptr = (uint8_t*) *(my_esp + 6); // ... i think + 6
       int i;
       for (i = 0; i < *(my_esp + 7); i++)
       {
@@ -253,7 +253,7 @@ static void syscall_read_handler (struct intr_frame *f)
           {
             lock_acquire (&file_sys_lock);
 
-            f->eax = file_read (cur_file->file, *(my_esp + 6), *(my_esp + 7));
+            f->eax = file_read (cur_file->file, (void*) (my_esp + 6), *(my_esp + 7));
 
             lock_release (&file_sys_lock);
           }
@@ -274,9 +274,22 @@ static void syscall_read_handler (struct intr_frame *f)
 
 static void syscall_write_handler (struct intr_frame *f)
 {
+  printf("In write call\n");
   int *my_esp = (int*) f->esp;
+  //hex_dump(my_esp, my_esp, (int)(PHYS_BASE - (int)my_esp), true);
+  int sys_call_num = *(my_esp);
+  int first_arg = *(my_esp + 1);
+  char **buf = (char**)(my_esp + 2);
+  int size = *(my_esp + 3);
+
+
+  printf ("first arg: %x\n", first_arg);
+  printf ("size: %d\n", size);
+  printf ("buf: %s\n", *(buf) + 6 );
+ 
+  
   // Check second to last arg's content and then last arg
-  if (ptr_is_valid (*(my_esp + 6)) && ptr_is_valid ((void*) (my_esp + 7)))
+  if (ptr_is_valid ((void*) (my_esp + 6)) && ptr_is_valid ((void*) (my_esp + 7)))
   {
     if (*(my_esp + 5) == 1)
     { // Write to console
@@ -300,7 +313,7 @@ static void syscall_write_handler (struct intr_frame *f)
           {
             lock_acquire (&file_sys_lock);
 
-            f->eax = file_write (cur_file->file, *(my_esp + 6), *(my_esp + 7));
+            f->eax = file_write (cur_file->file, (void*) (my_esp + 6), *(my_esp + 7));
 
             lock_release (&file_sys_lock);
           }
@@ -419,4 +432,27 @@ static void syscall_close_handler (struct intr_frame *f)
   {
     // TODO: exit()
   }
+}
+
+static void syscall_exit_handler (struct intr_frame *f)
+{
+  f->eax - 0;
+}
+static void syscall_exec_handler (struct intr_frame *f)
+{
+  f->eax = 0;
+}
+static void syscall_wait_handler (struct intr_frame *f)
+{
+  f->eax = 0;
+}
+
+static void syscall_remove_handler (struct intr_frame *f)
+{
+  f->eax = 0;
+}
+
+static void syscall_open_handler (struct intr_frame *f)
+{
+  f->eax = 0;
 }
