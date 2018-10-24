@@ -19,6 +19,7 @@ static void syscall_handler (struct intr_frame *);
 
 static bool ptr_is_valid (void *ptr);
 
+/* Brian Driving */
 static void syscall_halt_handler (void);
 static void syscall_exit_handler (struct intr_frame *f);
 static void syscall_exec_handler (struct intr_frame *f);
@@ -32,6 +33,13 @@ static void syscall_write_handler (struct intr_frame *f);
 static void syscall_seek_handler (struct intr_frame *f);
 static void syscall_tell_handler (struct intr_frame *f);
 static void syscall_close_handler (struct intr_frame *f);
+/* End Driving */
+
+/* Ryan Driving */
+// helper methods for exit
+struct child* get_child(tid_t tid, struct thread *cur_thread);
+static void exit_free_resources (struct thread *cur_thread);
+/* End Driving */
 
 /*locks file access*/
 static struct lock file_sys_lock;
@@ -123,6 +131,70 @@ static void
 syscall_halt_handler ()
 {
   shutdown_power_off ();
+}
+
+/* Ryan Driving */
+// parses the child list of a thread to find a child
+struct child*
+get_child(tid_t tid, struct thread *cur_thread)
+{
+  struct list_elem * e;
+  for (e=list_begin(&cur_thread->child_list);
+       e!=list_end(&cur_thread->child_list); e=list_next(e))
+  {
+    struct child *result = list_entry(e, struct child, child_elem);
+    if(result->child_tid == tid)
+      return result;
+  }
+  return NULL;
+}
+/* End Driving */
+
+/* Ryan Driving */
+static void
+exit_free_resources (struct thread *cur_thread)
+{
+
+}
+
+/* Ryan Driving */
+/* handles syscalls to exit, closing files,
+   freeing memory, and modifying exit statuses */
+static void
+syscall_exit_handler (struct intr_frame *f)
+{
+  // grab the esp off intr_frame
+  int *my_esp = f->esp;
+  if (ptr_is_valid ((void *) (my_esp + 1)))
+  {
+    // save the status cod
+    struct thread *cur_thread = thread_current ();
+    // save reference to parent
+    struct thread *parent = cur_thread->parent;
+    cur_thread->exit_code = *(my_esp + 1);
+
+    /* must check if the current thread to be exited is a child
+       of another thread, if so, we must update the child struct*/
+    if (!list_empty(&parent->child_list))
+    {
+      // get the current thread's relevant child struct
+      struct child *cur = get_child(thread_current()->tid,parent);
+      if (cur != NULL)
+      {
+        cur->exited = 1;
+        cur->child_exit_code = *(my_esp + 1);
+        /* wake up the current thread's parent if it is waiting
+           on the exit code */
+        if (cur_thread->parent->waited_on_child == cur_thread->tid)
+          sema_up (&cur_thread->parent->child_sema);
+      }
+      free (cur);
+    }
+
+    // free resources
+
+  }
+  thread_exit ();
 }
 
 /*Miles Driving*

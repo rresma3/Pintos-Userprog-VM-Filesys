@@ -470,8 +470,25 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
 
+  /* Brian Driving */
   list_init (&t->file_list);
+  /* End Driving */
 
+  /* Ryan Driving */
+  t->exit_code = 0;
+  list_init (&t->child_list);
+  t->parent = thread_current();
+  t->exit_called = 0;
+  sema_init (&t->child_sema, 0);
+  t->waited_on_child = 0;
+
+  // create a child structure to add to the creating thread's child list
+  struct child *my_child = malloc(sizeof(struct child));
+  my_child->child_tid = t->tid;
+  my_child->exited = 0;
+  my_child->child_exit_code = 0;
+  list_push_back (&thread_current()->child_list, &my_child->child_elem);
+  /* End Driving */
 
   t->magic = THREAD_MAGIC;
 
