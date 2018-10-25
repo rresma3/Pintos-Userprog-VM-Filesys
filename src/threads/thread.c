@@ -480,6 +480,7 @@ init_thread (struct thread *t, const char *name, int priority)
   lock_init (&t->child_list_lock);
   t->exit_called = 0;
   sema_init (&t->child_sema, 0);
+  sema_init (&t->load_sema, 0);
   t->waited_on_child = 0;
   t->magic = THREAD_MAGIC;
   /*if we are initing the very first thread

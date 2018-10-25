@@ -138,6 +138,7 @@ if (ptr != NULL && is_user_vaddr (ptr)
 static void
 syscall_halt_handler ()
 {
+  printf("in halt handler\n");
   shutdown_power_off ();
 }
 
@@ -166,6 +167,7 @@ get_child(tid_t tid, struct thread *cur_thread)
 static void
 syscall_exit_handler (struct intr_frame *f)
 {
+  printf("in exit handler\n");
   // grab the esp off intr_frame
   int *my_esp = f->esp;
   if (ptr_is_valid ((void *) (my_esp + 1)))
@@ -194,66 +196,25 @@ syscall_exit_handler (struct intr_frame *f)
       free (cur);
     }
 
-    // free resources
+    
 
   }
   thread_exit ();
 }
 
-/*Miles Driving*
-handler that exits the process and clears up memory
-close all open files and free space*/
-// static void syscall_exit_handler (struct intr_frame *f)
-// {
-//   int *my_esp = f->esp;
-//   my_esp++;
-//   //check that the arg passed in is a valid pointer
-//   if (ptr_is_valid ((void*) my_esp))
-//   {
-//     /*close all open files*/
-//     int status = *my_esp;
-//     struct thread *cur = thread_current ();
-//     struct list_elem *cur_elem;
-
-//     while (!list_empty (&cur->fd_list))
-//     {
-//       cur_elem = list_pop_back (&cur->fd_list);
-//       struct file_elem *cur_file = list_entry (cur_elem, struct file_elem, elem);
-//       file_close (&cur_file->file);
-//       free (cur_file);
-
-//     }
-  
-//     /*free up threads children*/
-//     while (!list_empty (&cur->child_list))
-//     {
-//       cur_elem = list_pop_back (&cur->child_list);
-//       struct child_elem *cur_child = list_entry (cur_elem, struct child_elem, elem);
-//       free (cur_child);
-//       //todo free big list
-//     }
-
-//   }
-//   else 
-//   {
-//     //todo free resources and locks
-//   }
-  
-// }
-
  /*handles a create file sys call*/
 static void syscall_create_handler (struct intr_frame *f)
 {
+  printf("in create handler\n");
   int *my_esp = (int*) f->esp;
   if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 2))
       && ptr_is_valid ((void*) *(my_esp + 1)))
   {
      
-    //both args are valid
+    //both args are valid.
     lock_acquire (&file_sys_lock);
     char *f_name = (char*) *(my_esp + 1);
-    unsigned int intial_size = (unsigned) *(my_esp + 2);
-    off_t initial_size = (unsigned) *my_esp;
+    unsigned int initial_size = (unsigned) *(my_esp + 2);
     f->eax = filesys_create (f_name, initial_size);
 
     lock_release (&file_sys_lock);
@@ -265,6 +226,7 @@ static void syscall_create_handler (struct intr_frame *f)
 
 static void syscall_filesize_handler (struct intr_frame *f)
 {
+  printf("in filesize handler\n");
   int *my_esp = (int*) f->esp;
   if (ptr_is_valid ((void*) (my_esp + 1)))
   {
@@ -292,6 +254,7 @@ static void syscall_filesize_handler (struct intr_frame *f)
 
 static void syscall_read_handler (struct intr_frame *f)
 {
+  printf("in read handler\n");
   int *my_esp = (int*) f->esp;
   // Check second to last arg's content and then last arg
    // Check second to last arg's content and then last arg
@@ -344,8 +307,8 @@ static void syscall_read_handler (struct intr_frame *f)
 
 
 static void syscall_write_handler (struct intr_frame *f)
-{
-  printf("In write call\n");
+{ // TODO: get second arg from input (x)
+  printf("In write handler\n");
   int *my_esp = (int*) f->esp;
 
   // Check second to last arg's content and then last arg
@@ -404,6 +367,7 @@ static void syscall_write_handler (struct intr_frame *f)
 
 static void syscall_seek_handler (struct intr_frame *f)
 {
+  printf("in seek handler\n");
   int *my_esp = (int*) f->esp;
   if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 2)))
   {
@@ -434,6 +398,7 @@ static void syscall_seek_handler (struct intr_frame *f)
 
 static void syscall_tell_handler (struct intr_frame *f)
 {
+  printf("in tell handler\n");
   int *my_esp = (int*) f->esp;
   if (ptr_is_valid ((void*) (my_esp + 1)))
   {
@@ -463,6 +428,7 @@ static void syscall_tell_handler (struct intr_frame *f)
 
 static void syscall_close_handler (struct intr_frame *f) 
 {
+  printf("in close handler\n");
   int *my_esp = (int*) f->esp;
   if (ptr_is_valid ((void*) (my_esp + 1)))
   {
@@ -501,15 +467,30 @@ static void syscall_close_handler (struct intr_frame *f)
 
 static void syscall_exec_handler (struct intr_frame *f)
 {
+  // printf ("in exec handler\n");
+  // int *my_esp = f->esp;
+  // if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) *(my_esp + 1)))
+  // {
+  //   char* cmd_line = (char*) (*(my_esp + 1));
+  //   printf ("cmd_line: %s\n", cmd_line);
+  //   struct thread *cur = thread_current ();
+  //   int child_pid = 0;
+  //   child_pid = process_execute (cmd_line);
+  //   sema_down (&cur->load_sema);
+    
+     
+  // }
   f->eax = 0;
 }
 static void syscall_wait_handler (struct intr_frame *f)
 {
+  printf("in wait handler\n");
   f->eax = 0;
 }
 
 static void syscall_remove_handler (struct intr_frame *f)
 {
+  printf("in remove handler\n");
   int *my_esp = f->esp;
   if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (*(my_esp + 1))))
   {
@@ -522,14 +503,19 @@ static void syscall_remove_handler (struct intr_frame *f)
 
 static void syscall_open_handler (struct intr_frame *f)
 {
+  printf("in open handler\n");
   int *my_esp = f->esp;
   if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) *(my_esp + 1)))
   {
+    printf("pointers valid\n");
     lock_acquire (&file_sys_lock);
-    struct file *cur_file = filesys_open ((char*) (*(my_esp + 1)));
+    char *f_name = (char*) (*(my_esp + 1));
+    printf("openeing file: %s\n", f_name);
+    struct file *cur_file = filesys_open (f_name);
     lock_release (&file_sys_lock);
     if (cur_file == NULL)
     {
+      printf("file null\n");
       f->eax = -1;
     }
     else

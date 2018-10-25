@@ -120,6 +120,8 @@ struct thread
     // keep track of the child for which a thread waits
     tid_t waited_on_child;
 
+    struct semaphore load_sema;
+
     int fd_count;
     /* End Driving */
 

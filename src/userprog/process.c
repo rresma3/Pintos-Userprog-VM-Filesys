@@ -116,6 +116,15 @@ start_process (void *file_name_)
   palloc_free_page (file_name);
   if (!success) 
     thread_exit ();
+  else
+  {
+    ASSERT (success);
+    //FIXME: double check this. thread_cur might be child or parent
+    struct thread *cur_parent = thread_current ()->parent;
+    ASSERT (cur_parent != NULL);
+    sema_up (&cur_parent->load_sema);
+  }
+    
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -530,7 +539,7 @@ setup_stack (char *argv[], int argc, void **esp)
         // go through the command line and start adding arguments into our list
         int arg_addrs[argc];
         int i;
-
+        //for (i = argc - 1; i >= 0; i--)
         for (i = 0; i < argc; i++)
         {
             // count number of bytes needed
@@ -564,7 +573,8 @@ setup_stack (char *argv[], int argc, void **esp)
         
         //addresses
         int k;
-        for (k = argc - 1; k >= 0; k--)
+        for (k = 0; k < argc; k++)
+        //for (k = argc - 1; k >= 0; k--)
         {
           //printf("%x\n", (int)arg_addrs[k]);
           esp_cpy -= sizeof (char*);
