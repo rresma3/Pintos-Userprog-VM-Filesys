@@ -127,7 +127,7 @@ if (ptr != NULL && is_user_vaddr (ptr)
   }
   else
   {
-    //TODO:exit
+    return false;
   }
   // TODO: what if partially in stack?
 }
@@ -298,10 +298,10 @@ static void syscall_filesize_handler (struct intr_frame *f)
 
 static void syscall_read_handler (struct intr_frame *f)
 {
-  int *my_esp = (int*) f->esp;
+  int **my_esp = (int*) f->esp;
   // Check second to last arg's content and then last arg
   if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 3))
-      && ptr_is_valid ((void*) (my_esp + 2) && ptr_is_valid((void*) *(my_esp + 2))))
+      && ptr_is_valid ((void*) (my_esp + 2)))
   {
     if (*(my_esp + 5) == 0)
     { 
@@ -354,21 +354,28 @@ static void syscall_write_handler (struct intr_frame *f)
   printf("In write call\n");
   int *my_esp = (int*) f->esp;
   //hex_dump(my_esp, my_esp, (int)(PHYS_BASE - (int)my_esp), true);
-  int sys_call_num = *(my_esp);
-  int first_arg = *(my_esp + 1);
-  char **buf = (char**)(my_esp + 2);
-  int size = *(my_esp + 3);
   
-
-
-  printf ("first arg: %x\n", first_arg);
-  printf ("size: %d\n", size);
-  printf ("buf: %s\n", *(buf));
  
   
   // Check second to last arg's content and then last arg
-  if (ptr_is_valid ((void*) (my_esp + 6)) && ptr_is_valid ((void*) (my_esp + 7)))
+  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 2))
+      && ptr_is_valid ((void*) (my_esp + 3)) && ptr_is_valid ((void*) (*(my_esp + 2))))
   {
+    
+    int sys_call_num = *(my_esp);
+    int first_arg = *(my_esp + 1);
+    char **buf = (char**)(my_esp + 2);
+    int size = *(my_esp + 3);
+    char *buf2 = *buf;
+    if (ptr_is_valid ((void*) buf2))
+    {
+      printf("buffer itself is valid\n");
+    }//
+
+    printf ("first arg: %x\n", first_arg);
+    printf ("size: %d\n", size);
+    printf ("buf: %s\n", *(buf));
+
     if (*(my_esp + 5) == 1)
     { // Write to console
       putbuf (*(my_esp + 6), *(my_esp + 7));
@@ -525,7 +532,14 @@ static void syscall_wait_handler (struct intr_frame *f)
 
 static void syscall_remove_handler (struct intr_frame *f)
 {
-  f->eax = 0;
+  int *my_esp = f->esp;
+  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) *(my_esp + 1)))
+  {
+    lock_acquire (&file_sys_lock);
+    f->eax = filesys_remove ((char*) *(my_esp + 1));
+    lock_release (&file_sys_lock);
+  }
+  
 }
 
 static void syscall_open_handler (struct intr_frame *f)
