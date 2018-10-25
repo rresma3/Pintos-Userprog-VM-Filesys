@@ -101,7 +101,6 @@ struct thread
     /* Brian Driving */
     // list of open files
     struct list file_list;
-    //struct lock file_sys_lock;
     /* End Driving */
 
     /* Ryan Driving */
@@ -109,12 +108,10 @@ struct thread
     int exit_code;
     // list of all this process's children, child struct defined in process.h
     struct list child_list;
-    /*synchronize access to child list*/
+    /* synchronize access to child list */
     struct lock child_list_lock;
     // reference for passing resources to parent thread
     struct thread *parent;
-    ///// used to determine if parent has exited before children
-    int exit_called;
     // used for when a thread waits on a child
     struct semaphore reap_sema;
     // used for when a thread turns into a zombie

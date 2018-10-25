@@ -5,6 +5,9 @@
 
 void syscall_init (void);
 
+/*locks file access*/
+static struct lock file_sys_lock;
+
 struct file_elem
 {
     int fd;

@@ -6,7 +6,7 @@
 // Brian Driving
 #include "devices/shutdown.h"
 #include "threads/vaddr.h"
-#include "process.h"
+#include "userprog/process.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "threads/synch.h"
@@ -14,11 +14,11 @@
 #include "devices/input.h"
 #include "threads/malloc.h"
 
-
-
 static void syscall_handler (struct intr_frame *);
 
+/* Miles Driving */
 static bool ptr_is_valid (void *ptr);
+/* End Driving */
 
 /* Brian Driving */
 static void syscall_halt_handler (void);
@@ -37,13 +37,9 @@ static void syscall_close_handler (struct intr_frame *f);
 /* End Driving */
 
 /* Ryan Driving */
-// helper methods for exit
-struct child* get_child(tid_t tid, struct thread *cur_thread);
-static void free_resources(struct thread *t);
+static void syscall_err_exit (struct intr_frame *f);
 /* End Driving */
 
-/*locks file access*/
-static struct lock file_sys_lock;
 
 void
 syscall_init (void) 
@@ -121,16 +117,16 @@ syscall_handler (struct intr_frame *f)
 static bool
 ptr_is_valid (void *ptr)
 {
-if (ptr != NULL && is_user_vaddr (ptr) 
-  && pagedir_get_page (thread_current ()->pagedir, ptr) != NULL)
+  if (ptr != NULL && is_user_vaddr (ptr) 
+      && pagedir_get_page (thread_current ()->pagedir, ptr) != NULL)
   {
-    return true;
+      return true;
   }
   else
   {
     return false;
   }
-  // TODO: what if partially in stack?
+    // TODO: what if partially in stack?
 }
 
 
@@ -143,60 +139,14 @@ syscall_halt_handler ()
 }
 
 /* Ryan Driving */
-// parses the child list of a thread to find a child
-struct child*
-get_child(tid_t tid, struct thread *cur_thread)
+/* Widely used method to handle bad pointer or invalid 
+   arg on stack, exits the calling process with status of */
+static void 
+syscall_err_exit (struct intr_frame *f)
 {
-  struct list_elem * e;
-  for (e=list_begin(&cur_thread->child_list);
-       e!=list_end(&cur_thread->child_list); e=list_next(e))
-  {
-    struct child *result = list_entry(e, struct child, child_elem);
-    if(result->child_tid == tid)
-      return result;
-    free(result);
-  }
-  return NULL;
+  
 }
 /* End Driving */
-
-static void 
-free_resources(struct thread *t)
-{
-  // if the current thread's parent isn't dead, we must call sema
-  if (&t->parent != NULL)
-  {
-    // we want to try to dereference the parent
-    sema_down (&t->parent->zombie_sema);
-  }
-
-  struct list_elem *iterator;
-  struct file_elem *cur_file;
-  struct child *cur_child;
-  // synchronize and free the memory we don't need
-  lock_acquire (&file_sys_lock);
-  while (!list_empty (&t->file_list))
-  {
-    iterator = list_pop_back (&t->file_list);
-    cur_file = list_entry (iterator, struct file_elem, elem);
-    file_close (&cur_file->file);
-    free (cur_file);
-  }
-  lock_release (&file_sys_lock);
-
-  lock_acquire (&t->child_list_lock);
-  while (!list_empty (&t->child_list))
-  {
-    iterator = list_pop_back (&t->child_list);
-    cur_child = list_entry (iterator, struct child, child_elem);
-    free (cur_child);
-  }
-  lock_release (&t->child_list_lock);
-
-  // let zombie children know they can exit
-  sema_up (&t->zombie_sema);
-  t->parent = NULL;
-}
 
 /* Ryan Driving */
 /* handles syscalls to exit, closing files,
@@ -217,31 +167,67 @@ syscall_exit_handler (struct intr_frame *f)
 
     /* must check if the current thread to be exited is a child
        of another thread, if so, we must update the child struct*/
+    lock_acquire (&parent->child_list_lock);
     if (parent != NULL && !list_empty(&parent->child_list))
     {
-      lock_acquire (&parent->child_list_lock);
       // get the current thread's relevant child struct
-      struct child *cur = get_child(thread_current()->tid,parent);
+      struct child *cur = get_child (parent->waited_on_child, parent);
       if (cur != NULL)
       {
-        // TODO: may not need?
-        cur->exited = 1;
         cur->child_exit_code = *(my_esp + 1);
         /* wake up the current thread's parent if it is waiting
            on the exit code */
         if (cur_thread->parent->waited_on_child == cur_thread->tid)
+        {
+          cur->waited_on = 0;
           sema_up (&cur_thread->parent->reap_sema);
+        }    
       }
       free (cur);
-      lock_release (&parent->child_list_lock);
     }
+    lock_acquire (&parent->child_list_lock);
+    // garbage collection
+    cur_thread = NULL;
+    parent = NULL;
   }
-  free_resources (thread_current ());
+  else
+  {
+    printf ("invalid pointer");
+    syscall_err_exit (f);
+  }
   thread_exit ();
 }
+/* End Driving */
 
- /*handles a create file sys call*/
-static void syscall_create_handler (struct intr_frame *f)
+/* Ryan Driving */
+/* system call handler for wait: validates the pid passed in is a valid
+   pid, then iff pid is still alive, waits until it terminates. Then, 
+   returns the status that pid passed to exit. If pid did not call exit(),
+   but was terminated by the kernel (e.g. killed due to an exception), 
+   wait(pid) must return -1. */
+static void 
+syscall_wait_handler (struct intr_frame *f)
+{
+  printf("in wait handler\n");
+  int *my_esp = f->esp;
+  // check valid pointer
+  if (ptr_is_valid ((void *) (my_esp + 1)))
+  {
+    f->eax = process_wait (*(my_esp + 1));
+  }
+  else
+  {
+    printf ("invalid pointer");
+    f->eax = -1;
+    syscall_err_exit (f);
+  }
+}
+/* End Driving */
+
+
+/* handles a create file sys call */
+static void 
+syscall_create_handler (struct intr_frame *f)
 {
   printf("in create handler\n");
   int *my_esp = (int*) f->esp;
@@ -262,7 +248,8 @@ static void syscall_create_handler (struct intr_frame *f)
 }
 
 
-static void syscall_filesize_handler (struct intr_frame *f)
+static void 
+syscall_filesize_handler (struct intr_frame *f)
 {
   printf("in filesize handler\n");
   int *my_esp = (int*) f->esp;
@@ -290,7 +277,8 @@ static void syscall_filesize_handler (struct intr_frame *f)
   }
 }
 
-static void syscall_read_handler (struct intr_frame *f)
+static void 
+syscall_read_handler (struct intr_frame *f)
 {
   printf("in read handler\n");
   int *my_esp = (int*) f->esp;
@@ -324,27 +312,28 @@ static void syscall_read_handler (struct intr_frame *f)
       for (iterator = list_begin(cur_file_list);
            iterator != list_end (cur_file_list);
            iterator = list_next (iterator))
+      {
+        cur_file = list_entry (iterator, struct file_elem, elem);
+        if (cur_file != NULL && cur_file->fd == fd)
         {
-          cur_file = list_entry (iterator, struct file_elem, elem);
-          if (cur_file != NULL && cur_file->fd == fd)
-          {
-            lock_acquire (&file_sys_lock);
+          lock_acquire (&file_sys_lock);
 
-            f->eax = file_read (cur_file->file, (void*) buf, size);
+          f->eax = file_read (cur_file->file, (void*) buf, size);
 
-            lock_release (&file_sys_lock);
-          }
-          else
-          {
-            f->eax = -1;
-          }
+          lock_release (&file_sys_lock);
         }
+        else
+        {
+          f->eax = -1;
+        }
+      }
     }
   }
 }
 
 
-static void syscall_write_handler (struct intr_frame *f)
+static void 
+syscall_write_handler (struct intr_frame *f)
 { // TODO: get second arg from input (x)
   printf("In write handler\n");
   int *my_esp = (int*) f->esp;
@@ -403,7 +392,8 @@ static void syscall_write_handler (struct intr_frame *f)
 }
 
 
-static void syscall_seek_handler (struct intr_frame *f)
+static void 
+syscall_seek_handler (struct intr_frame *f)
 {
   printf("in seek handler\n");
   int *my_esp = (int*) f->esp;
@@ -434,7 +424,8 @@ static void syscall_seek_handler (struct intr_frame *f)
 }
 
 
-static void syscall_tell_handler (struct intr_frame *f)
+static void 
+syscall_tell_handler (struct intr_frame *f)
 {
   printf("in tell handler\n");
   int *my_esp = (int*) f->esp;
@@ -464,7 +455,8 @@ static void syscall_tell_handler (struct intr_frame *f)
 
 
 
-static void syscall_close_handler (struct intr_frame *f) 
+static void 
+syscall_close_handler (struct intr_frame *f) 
 {
   printf("in close handler\n");
   int *my_esp = (int*) f->esp;
@@ -503,7 +495,8 @@ static void syscall_close_handler (struct intr_frame *f)
 
 
 
-static void syscall_exec_handler (struct intr_frame *f)
+static void 
+syscall_exec_handler (struct intr_frame *f)
 {
   // printf ("in exec handler\n");
   // int *my_esp = f->esp;
@@ -520,13 +513,9 @@ static void syscall_exec_handler (struct intr_frame *f)
   // }
   f->eax = 0;
 }
-static void syscall_wait_handler (struct intr_frame *f)
-{
-  printf("in wait handler\n");
-  f->eax = 0;
-}
 
-static void syscall_remove_handler (struct intr_frame *f)
+static void 
+syscall_remove_handler (struct intr_frame *f)
 {
   printf("in remove handler\n");
   int *my_esp = f->esp;
@@ -539,7 +528,8 @@ static void syscall_remove_handler (struct intr_frame *f)
   
 }
 
-static void syscall_open_handler (struct intr_frame *f)
+static void 
+syscall_open_handler (struct intr_frame *f)
 {
   printf("in open handler\n");
   int *my_esp = f->esp;

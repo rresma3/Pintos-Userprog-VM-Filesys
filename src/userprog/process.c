@@ -18,10 +18,14 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "threads/synch.h"
+#include "userprog/syscall.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (char *argv[], int argc, void (**eip) (void), void **esp);
 
+
+/* Sam Driving */
 /*struct to keep track of the arg vector*/
 struct args
 {
@@ -29,6 +33,7 @@ struct args
   void *addr;
   struct list_elem elem;
 };
+/* End Driving */
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -146,13 +151,115 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. a*/
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
+  /* Ryan Driving */
   printf("in wait\n");
-  while(1){
-
+  int ret_exit_code = -1;
+  // save reference to current thread
+  struct thread *cur_thread = thread_current ();
+  // attempt to find the child in child_list via pid search
+  struct child *cur_child = get_child (child_tid, cur_thread);
+  // check if we found a matching child
+  if (cur_child != NULL)
+  {
+    // accessing element in our child list, MUST synchronize
+    lock_acquire (&cur_thread->child_list_lock);
+    // check if the current child is being waited on already, if so, return
+    if (cur_child->waited_on == 0)
+    {
+      // our child is not being waited on, so we proceed
+      cur_thread->waited_on_child = cur_child->child_tid;
+      cur_child->waited_on = 1;
+      // release our child's lock before we attempt to reap
+      lock_release (&cur_thread->child_list_lock);
+      // try to reap, sema_up() will be called in exit handler
+      sema_down (&cur_thread->reap_sema);
+      // grab the child's exit code
+      lock_acquire (&cur_thread->child_list_lock);
+      list_remove (&cur_child->child_elem);
+      ret_exit_code = cur_child->child_exit_code;
+      lock_release (&cur_thread->child_list_lock);
+    } 
+    else
+    {
+      // child is being waited on already
+      lock_release (&cur_thread->child_list_lock);
+    }
   }
-  return -1;
+  // garbage collect
+  cur_thread = NULL;
+  cur_child = NULL;
+  return ret_exit_code;
+  /* End driving */
+}
+
+/* Ryan Driving */
+// parses the child list of a thread to find a child
+struct child*
+get_child(tid_t tid, struct thread *cur_thread)
+{
+  // try to access the current thread's child list
+  lock_acquire (&cur_thread->child_list_lock);
+  // parse the child list
+  struct list_elem * e;
+  for (e=list_begin(&cur_thread->child_list);
+       e!=list_end(&cur_thread->child_list); e=list_next(e))
+  {
+    // save reference to our current child
+    struct child *result = list_entry(e, struct child, child_elem);
+    // check if the tid's match, if so we have found our child
+    if(result->child_tid == tid)
+    {
+      lock_release (&cur_thread->child_list_lock);
+      return result;
+    }
+    free(result);
+  }
+  // release the current thread's child list
+  lock_release (&cur_thread->child_list_lock);
+  return NULL;
+}
+/* End Driving */
+
+void 
+free_resources(struct thread *t)
+{
+  // if the current thread's parent isn't dead, we must call sema
+  if (&t->parent != NULL)
+  {
+    // we want to try to dereference the parent
+    sema_down (&t->parent->zombie_sema);
+  }
+ 
+  struct list_elem *iterator = NULL;
+  struct file_elem *cur_file = NULL;
+  struct child *cur_child = NULL;
+
+  // synchronize and free the memory we don't need
+  lock_acquire (&file_sys_lock);
+  while (!list_empty (&t->file_list))
+  {
+    iterator = list_pop_back (&t->file_list);
+    cur_file = list_entry (iterator, struct file_elem, elem);
+    file_close (cur_file->file);
+    free (cur_file); 
+  }
+  lock_release (&file_sys_lock);
+
+  lock_acquire (&t->child_list_lock);
+  while (!list_empty (&t->child_list))
+  {
+    iterator = list_pop_back (&t->child_list);
+    cur_child = list_entry (iterator, struct child, child_elem);
+    free (cur_child);
+  }
+  lock_release (&t->child_list_lock);
+
+  // let zombie children know they can exit
+  sema_up (&t->zombie_sema);
+  t->parent = NULL;
+  free (t);
 }
 
 /* Free the current process's resources. */
@@ -161,6 +268,8 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+
+  free_resources (cur);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
