@@ -251,10 +251,8 @@ static void syscall_create_handler (struct intr_frame *f)
      
     //both args are valid
     lock_acquire (&file_sys_lock);
-    
-    my_esp++;
-    char *f_name = (char*) my_esp;
-    my_esp++;
+    char *f_name = (char*) *(my_esp + 1);
+    unsigned int intial_size = (unsigned) *(my_esp + 2);
     off_t initial_size = (unsigned) *my_esp;
     f->eax = filesys_create (f_name, initial_size);
 
@@ -296,18 +294,24 @@ static void syscall_read_handler (struct intr_frame *f)
 {
   int *my_esp = (int*) f->esp;
   // Check second to last arg's content and then last arg
+   // Check second to last arg's content and then last arg
   if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 2))
       && ptr_is_valid ((void*) (my_esp + 3)) && ptr_is_valid ((void*) (*(my_esp + 2))))
-  { 
-    if (*(my_esp + 5) == 0)
+  {
+    int fd = *(my_esp + 1);
+    char **buf_ptr = (char**)(my_esp + 2);
+    int size = *(my_esp + 3);
+    char *buf = *buf_ptr;
+
+    if (fd == 0)
     { 
-      uint8_t *buff_ptr = (uint8_t*) *(my_esp + 6); // ... i think + 6
+      uint8_t *buff_ptr = (uint8_t*) buf;
       int i;
-      for (i = 0; i < *(my_esp + 7); i++)
+      for (i = 0; i < size; i++)
       {
         buff_ptr[i] = input_getc ();
       }
-      f->eax = *(my_esp + 7);
+      f->eax = size;
     }
     else
     {
@@ -315,7 +319,6 @@ static void syscall_read_handler (struct intr_frame *f)
       struct file_elem *cur_file;
       struct list *cur_file_list = &thread_current ()->file_list;
 
-      int fd = *(my_esp + 5);
 
       for (iterator = list_begin(cur_file_list);
            iterator != list_end (cur_file_list);
@@ -326,7 +329,7 @@ static void syscall_read_handler (struct intr_frame *f)
           {
             lock_acquire (&file_sys_lock);
 
-            f->eax = file_read (cur_file->file, (void*) (my_esp + 6), *(my_esp + 7));
+            f->eax = file_read (cur_file->file, (void*) buf, size);
 
             lock_release (&file_sys_lock);
           }
@@ -337,11 +340,6 @@ static void syscall_read_handler (struct intr_frame *f)
         }
     }
   }
-  else
-  {
-    f->eax = 0;
-    // TODO: exit()
-  }
 }
 
 
@@ -349,10 +347,7 @@ static void syscall_write_handler (struct intr_frame *f)
 {
   printf("In write call\n");
   int *my_esp = (int*) f->esp;
-  //hex_dump(my_esp, my_esp, (int)(PHYS_BASE - (int)my_esp), true);
-  
- 
-  
+
   // Check second to last arg's content and then last arg
   if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 2))
       && ptr_is_valid ((void*) (my_esp + 3)) && ptr_is_valid ((void*) (*(my_esp + 2))))
@@ -410,7 +405,7 @@ static void syscall_write_handler (struct intr_frame *f)
 static void syscall_seek_handler (struct intr_frame *f)
 {
   int *my_esp = (int*) f->esp;
-  if (ptr_is_valid ((void*) (my_esp + 5)))
+  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 2)))
   {
     lock_acquire (&file_sys_lock);
 
@@ -418,7 +413,8 @@ static void syscall_seek_handler (struct intr_frame *f)
     struct file_elem *cur_file;
     struct list *cur_file_list = &thread_current ()->file_list;
 
-    int fd = *(my_esp + 4);
+    int fd = *(my_esp + 1);
+    unsigned int position = *(my_esp + 2);
 
     for (iterator = list_begin(cur_file_list);
          iterator != list_end (cur_file_list);
@@ -428,14 +424,10 @@ static void syscall_seek_handler (struct intr_frame *f)
         if (cur_file != NULL && cur_file->fd == fd)
         {
           //TODO: verify this bit stuff is right
-          file_seek (cur_file->file, *(my_esp + 5));
+          file_seek (cur_file->file, position);
         }
       }
     lock_release (&file_sys_lock);
-  }
-  else
-  {
-    // TODO: exit()
   }
 }
 
@@ -464,10 +456,6 @@ static void syscall_tell_handler (struct intr_frame *f)
         }
       }
     lock_release (&file_sys_lock);
-  }
-  else
-  {
-    //TODO: exit()
   }
 }
 
