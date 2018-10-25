@@ -263,7 +263,6 @@ struct thread *
 thread_current (void) 
 {
   struct thread *t = running_thread ();
-  
   /* Make sure T is really a thread.
      If either of these assertions fire, then your thread may
      have overflowed its stack.  Each thread has less than 4 kB
@@ -459,7 +458,6 @@ static void
 init_thread (struct thread *t, const char *name, int priority)
 {
   enum intr_level old_level;
-  
   ASSERT (t != NULL);
   ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
   ASSERT (name != NULL);
@@ -477,20 +475,29 @@ init_thread (struct thread *t, const char *name, int priority)
   /* Ryan Driving */
   t->exit_code = 0;
   list_init (&t->child_list);
-  t->parent = thread_current();
+
+  lock_init (&t->child_list_lock);
   t->exit_called = 0;
   sema_init (&t->child_sema, 0);
   t->waited_on_child = 0;
-
-  // create a child structure to add to the creating thread's child list
-  struct child *my_child = malloc(sizeof(struct child));
-  my_child->child_tid = t->tid;
-  my_child->exited = 0;
-  my_child->child_exit_code = 0;
-  list_push_back (&thread_current()->child_list, &my_child->child_elem);
-  /* End Driving */
-
   t->magic = THREAD_MAGIC;
+  /*if we are initing the very first thread
+  we set our parent to null*/
+  if (!strcmp(t->name, "main"))
+  {
+    t->parent = NULL;
+  } 
+  else 
+  {
+    t->parent = thread_current();
+    // create a child structure to add to the creating thread's child list
+    struct child *my_child = malloc(sizeof(struct child));
+    my_child->child_tid = t->tid;
+    my_child->exited = 0;
+    my_child->child_exit_code = 0;
+    list_push_back (&thread_current()->child_list, &my_child->child_elem);
+    /* End Driving */
+  }
 
   old_level = intr_disable();
   list_push_back (&all_list, &t->allelem);

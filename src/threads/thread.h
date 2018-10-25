@@ -109,6 +109,8 @@ struct thread
     int exit_code;
     // list of all this process's children, child struct defined in process.h
     struct list child_list;
+    /*synchronize access to child list*/
+    struct lock child_list_lock;
     // reference for passing resources to parent thread
     struct thread *parent;
     ///// used to determine if parent has exited before children

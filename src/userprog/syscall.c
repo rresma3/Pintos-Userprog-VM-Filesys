@@ -120,8 +120,15 @@ syscall_handler (struct intr_frame *f)
 static bool
 ptr_is_valid (void *ptr)
 {
-  return (ptr != NULL && is_user_vaddr (ptr) 
-  && pagedir_get_page (thread_current ()->pagedir, ptr) != NULL);
+if (ptr != NULL && is_user_vaddr (ptr) 
+  && pagedir_get_page (thread_current ()->pagedir, ptr) != NULL)
+  {
+    return true;
+  }
+  else
+  {
+    //TODO:exit
+  }
   // TODO: what if partially in stack?
 }
 
@@ -154,7 +161,7 @@ get_child(tid_t tid, struct thread *cur_thread)
 static void
 exit_free_resources (struct thread *cur_thread)
 {
-
+  
 }
 
 /* Ryan Driving */
@@ -175,7 +182,7 @@ syscall_exit_handler (struct intr_frame *f)
 
     /* must check if the current thread to be exited is a child
        of another thread, if so, we must update the child struct*/
-    if (!list_empty(&parent->child_list))
+    if (parent != NULL && !list_empty(&parent->child_list))
     {
       // get the current thread's relevant child struct
       struct child *cur = get_child(thread_current()->tid,parent);
@@ -242,7 +249,8 @@ close all open files and free space*/
 static void syscall_create_handler (struct intr_frame *f)
 {
   int *my_esp = (int*) f->esp;
-  if (ptr_is_valid ((void*) (my_esp + 4)) && ptr_is_valid ((void*) (my_esp + 5)))
+  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 2))
+      && ptr_is_valid ((void*) *(my_esp + 1)));
   {
      
     //both args are valid
@@ -286,17 +294,14 @@ static void syscall_filesize_handler (struct intr_frame *f)
       }
     lock_release (&file_sys_lock);
   }
-  else
-  {
-    //TODO: exit()
-  }
 }
 
 static void syscall_read_handler (struct intr_frame *f)
 {
   int *my_esp = (int*) f->esp;
   // Check second to last arg's content and then last arg
-  if (ptr_is_valid ((void*) (my_esp + 6)) && ptr_is_valid ((void*) (my_esp + 7)))
+  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 3))
+      && ptr_is_valid ((void*) (my_esp + 2) && ptr_is_valid((void*) *(my_esp + 2))))
   {
     if (*(my_esp + 5) == 0)
     { 
@@ -353,11 +358,12 @@ static void syscall_write_handler (struct intr_frame *f)
   int first_arg = *(my_esp + 1);
   char **buf = (char**)(my_esp + 2);
   int size = *(my_esp + 3);
+  
 
 
   printf ("first arg: %x\n", first_arg);
   printf ("size: %d\n", size);
-  printf ("buf: %s\n", *(buf) + 6 );
+  printf ("buf: %s\n", *(buf));
  
   
   // Check second to last arg's content and then last arg
@@ -506,10 +512,8 @@ static void syscall_close_handler (struct intr_frame *f)
   }
 }
 
-static void syscall_exit_handler (struct intr_frame *f)
-{
-  f->eax - 0;
-}
+
+
 static void syscall_exec_handler (struct intr_frame *f)
 {
   f->eax = 0;

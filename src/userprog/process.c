@@ -514,7 +514,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (char *argv[], int argc, void **esp) 
 {
-  printf("INSIDE SETUP_STACK %d\n", argc);
   uint8_t *kpage;
   bool success = false;
 
@@ -524,7 +523,6 @@ setup_stack (char *argv[], int argc, void **esp)
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
       {
-        printf("successful install_page, pushing args to stack\n");
         *esp = PHYS_BASE;
         char *esp_cpy = PHYS_BASE;
         // keep arguments in a list
@@ -535,8 +533,6 @@ setup_stack (char *argv[], int argc, void **esp)
 
         for (i = 0; i < argc; i++)
         {
-            
-            printf("arg: %s  size %d\n", argv[i], strlen(argv[i]));
             // count number of bytes needed
             count += strlen (argv[i]) + 1;
             // check for page size
@@ -548,13 +544,11 @@ setup_stack (char *argv[], int argc, void **esp)
             esp_cpy -= strlen (argv[i]) + 1;
             arg_addrs[i] = (int) esp_cpy;
             memcpy (esp_cpy, (void *) argv[i], strlen (argv[i]) + 1);
-            printf("arg_addr %x\n", arg_addrs[i]);
         }
 
         int zero = 0;
         //align on 4 byte word
         int word_align = ((unsigned int)esp_cpy % 4);
-        printf("word align %d\n", word_align);
         int j;
         for (j = 0; j < word_align; j++)
         {
@@ -565,7 +559,6 @@ setup_stack (char *argv[], int argc, void **esp)
         // check size again
         if (count > PGSIZE)
           return false;
-        printf("sentinel\n");
         // sentinel 
         esp_cpy -= sizeof (char *);
         
@@ -597,12 +590,6 @@ setup_stack (char *argv[], int argc, void **esp)
       else
         palloc_free_page (kpage);
     }
-    printf("status %d\n", success);
-    printf("PHYS_BASE: %x\n", (int)PHYS_BASE);
-    
-    printf("status %d\n", success);
-  //*esp = PHYS_BASE;
-  
  
   return success;
   
