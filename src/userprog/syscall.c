@@ -12,6 +12,7 @@
 #include "threads/synch.h"
 #include "pagedir.h"
 #include "devices/input.h"
+#include "threads/malloc.h"
 
 
 
@@ -38,7 +39,7 @@ static void syscall_close_handler (struct intr_frame *f);
 /* Ryan Driving */
 // helper methods for exit
 struct child* get_child(tid_t tid, struct thread *cur_thread);
-static void exit_free_resources (struct thread *cur_thread);
+
 /* End Driving */
 
 /*locks file access*/
@@ -152,17 +153,12 @@ get_child(tid_t tid, struct thread *cur_thread)
     struct child *result = list_entry(e, struct child, child_elem);
     if(result->child_tid == tid)
       return result;
+    free(result);
   }
   return NULL;
 }
 /* End Driving */
 
-/* Ryan Driving */
-static void
-exit_free_resources (struct thread *cur_thread)
-{
-  
-}
 
 /* Ryan Driving */
 /* handles syscalls to exit, closing files,
@@ -250,7 +246,7 @@ static void syscall_create_handler (struct intr_frame *f)
 {
   int *my_esp = (int*) f->esp;
   if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 2))
-      && ptr_is_valid ((void*) *(my_esp + 1)));
+      && ptr_is_valid ((void*) *(my_esp + 1)))
   {
      
     //both args are valid
@@ -298,11 +294,11 @@ static void syscall_filesize_handler (struct intr_frame *f)
 
 static void syscall_read_handler (struct intr_frame *f)
 {
-  int **my_esp = (int*) f->esp;
+  int *my_esp = (int*) f->esp;
   // Check second to last arg's content and then last arg
-  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 3))
-      && ptr_is_valid ((void*) (my_esp + 2)))
-  {
+  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 2))
+      && ptr_is_valid ((void*) (my_esp + 3)) && ptr_is_valid ((void*) (*(my_esp + 2))))
+  { 
     if (*(my_esp + 5) == 0)
     { 
       uint8_t *buff_ptr = (uint8_t*) *(my_esp + 6); // ... i think + 6
@@ -361,25 +357,24 @@ static void syscall_write_handler (struct intr_frame *f)
   if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 2))
       && ptr_is_valid ((void*) (my_esp + 3)) && ptr_is_valid ((void*) (*(my_esp + 2))))
   {
-    
-    int sys_call_num = *(my_esp);
-    int first_arg = *(my_esp + 1);
-    char **buf = (char**)(my_esp + 2);
+    int fd = *(my_esp + 1);
+    char **buf_ptr = (char**)(my_esp + 2);
     int size = *(my_esp + 3);
-    char *buf2 = *buf;
-    if (ptr_is_valid ((void*) buf2))
-    {
-      printf("buffer itself is valid\n");
-    }//
+    char *buf = *buf_ptr;
+    
 
-    printf ("first arg: %x\n", first_arg);
+    printf ("first arg: %x\n", fd);
     printf ("size: %d\n", size);
-    printf ("buf: %s\n", *(buf));
+    //printf ("buf: %s\n", (buf));
 
-    if (*(my_esp + 5) == 1)
+    if (fd == 1)
     { // Write to console
-      putbuf (*(my_esp + 6), *(my_esp + 7));
-      f->eax = *(my_esp + 7);
+      printf ("write to console\n");
+      //ASSERT(1 == 23);
+
+      putbuf (buf, size);
+     
+      f->eax = size;
     }
     else
     {
@@ -387,7 +382,7 @@ static void syscall_write_handler (struct intr_frame *f)
       struct file_elem *cur_file;
       struct list *cur_file_list = &thread_current ()->file_list;
 
-      int fd = *(my_esp + 5);
+      
 
       for (iterator = list_begin(cur_file_list);
            iterator != list_end (cur_file_list);
@@ -408,11 +403,6 @@ static void syscall_write_handler (struct intr_frame *f)
           }
         }
     }
-  }
-  else
-  {
-    f->eax = 0;
-    // TODO: exit()
   }
 }
 
@@ -491,7 +481,7 @@ static void syscall_close_handler (struct intr_frame *f)
     lock_acquire (&file_sys_lock);
 
     struct list_elem *iterator;
-    struct file_elem *cur_file;
+    struct file_elem *cur_file = NULL;
     struct list *cur_file_list = &thread_current ()->file_list;
 
     int fd = *(my_esp + 1);
@@ -505,7 +495,7 @@ static void syscall_close_handler (struct intr_frame *f)
         if (cur_file != NULL && cur_file->fd == fd)
         {
           list_remove (iterator); // Remove file from list
-          file_close (cur_file->file);  // Close file
+          file_close (cur_file->file);  // Close file.
           break;
         }
       }
@@ -533,7 +523,7 @@ static void syscall_wait_handler (struct intr_frame *f)
 static void syscall_remove_handler (struct intr_frame *f)
 {
   int *my_esp = f->esp;
-  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) *(my_esp + 1)))
+  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (*(my_esp + 1))))
   {
     lock_acquire (&file_sys_lock);
     f->eax = filesys_remove ((char*) *(my_esp + 1));
@@ -544,5 +534,26 @@ static void syscall_remove_handler (struct intr_frame *f)
 
 static void syscall_open_handler (struct intr_frame *f)
 {
-  f->eax = 0;
+  int *my_esp = f->esp;
+  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) *(my_esp + 1)))
+  {
+    lock_acquire (&file_sys_lock);
+    struct file *cur_file = filesys_open ((char*) (*(my_esp + 1)));
+    lock_release (&file_sys_lock);
+    if (cur_file == NULL)
+    {
+      f->eax = -1;
+    }
+    else
+    {
+      struct file_elem *f_elem = malloc (sizeof (f_elem));
+      f_elem->file = cur_file;
+      struct thread *cur = thread_current ();
+      f_elem->fd = cur->fd_count;
+      cur->fd_count++;
+      list_push_back (&cur->file_list, &f_elem->elem);
+      f->eax = f_elem->fd;
+    }
+    
+  }
 }

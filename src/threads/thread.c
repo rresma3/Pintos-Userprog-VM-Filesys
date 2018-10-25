@@ -474,6 +474,7 @@ init_thread (struct thread *t, const char *name, int priority)
 
   /* Ryan Driving */
   t->exit_code = 0;
+  t->fd_count = 2;
   list_init (&t->child_list);
 
   lock_init (&t->child_list_lock);

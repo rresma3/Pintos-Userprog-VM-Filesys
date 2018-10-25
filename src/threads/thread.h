@@ -119,6 +119,8 @@ struct thread
     struct semaphore child_sema;
     // keep track of the child for which a thread waits
     tid_t waited_on_child;
+
+    int fd_count;
     /* End Driving */
 
 #ifdef USERPROG
