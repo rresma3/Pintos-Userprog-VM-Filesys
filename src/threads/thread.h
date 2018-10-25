@@ -116,11 +116,13 @@ struct thread
     ///// used to determine if parent has exited before children
     int exit_called;
     // used for when a thread waits on a child
-    struct semaphore child_sema;
+    struct semaphore reap_sema;
+    // used for when a thread turns into a zombie
+    struct semaphore zombie_sema;
     // keep track of the child for which a thread waits
     tid_t waited_on_child;
 
-    struct semaphore load_sema;
+    // struct semaphore load_sema;
 
     int fd_count;
     /* End Driving */

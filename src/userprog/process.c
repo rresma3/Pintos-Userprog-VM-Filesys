@@ -116,14 +116,14 @@ start_process (void *file_name_)
   palloc_free_page (file_name);
   if (!success) 
     thread_exit ();
-  else
-  {
-    ASSERT (success);
-    //FIXME: double check this. thread_cur might be child or parent
-    struct thread *cur_parent = thread_current ()->parent;
-    ASSERT (cur_parent != NULL);
-    sema_up (&cur_parent->load_sema);
-  }
+  // else
+  // {
+  //   ASSERT (success);
+  //   //FIXME: double check this. thread_cur might be child or parent
+  //   struct thread *cur_parent = thread_current ()->parent;
+  //   ASSERT (cur_parent != NULL);
+  //   sema_up (&cur_parent->load_sema);
+  // }
     
 
   /* Start the user process by simulating a return from an

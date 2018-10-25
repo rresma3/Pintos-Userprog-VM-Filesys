@@ -39,7 +39,7 @@ static void syscall_close_handler (struct intr_frame *f);
 /* Ryan Driving */
 // helper methods for exit
 struct child* get_child(tid_t tid, struct thread *cur_thread);
-
+static void free_resources(struct thread *t);
 /* End Driving */
 
 /*locks file access*/
@@ -160,6 +160,43 @@ get_child(tid_t tid, struct thread *cur_thread)
 }
 /* End Driving */
 
+static void 
+free_resources(struct thread *t)
+{
+  // if the current thread's parent isn't dead, we must call sema
+  if (&t->parent != NULL)
+  {
+    // we want to try to dereference the parent
+    sema_down (&t->parent->zombie_sema);
+  }
+
+  struct list_elem *iterator;
+  struct file_elem *cur_file;
+  struct child *cur_child;
+  // synchronize and free the memory we don't need
+  lock_acquire (&file_sys_lock);
+  while (!list_empty (&t->file_list))
+  {
+    iterator = list_pop_back (&t->file_list);
+    cur_file = list_entry (iterator, struct file_elem, elem);
+    file_close (&cur_file->file);
+    free (cur_file);
+  }
+  lock_release (&file_sys_lock);
+
+  lock_acquire (&t->child_list_lock);
+  while (!list_empty (&t->child_list))
+  {
+    iterator = list_pop_back (&t->child_list);
+    cur_child = list_entry (iterator, struct child, child_elem);
+    free (cur_child);
+  }
+  lock_release (&t->child_list_lock);
+
+  // let zombie children know they can exit
+  sema_up (&t->zombie_sema);
+  t->parent = NULL;
+}
 
 /* Ryan Driving */
 /* handles syscalls to exit, closing files,
@@ -182,23 +219,24 @@ syscall_exit_handler (struct intr_frame *f)
        of another thread, if so, we must update the child struct*/
     if (parent != NULL && !list_empty(&parent->child_list))
     {
+      lock_acquire (&parent->child_list_lock);
       // get the current thread's relevant child struct
       struct child *cur = get_child(thread_current()->tid,parent);
       if (cur != NULL)
       {
+        // TODO: may not need?
         cur->exited = 1;
         cur->child_exit_code = *(my_esp + 1);
         /* wake up the current thread's parent if it is waiting
            on the exit code */
         if (cur_thread->parent->waited_on_child == cur_thread->tid)
-          sema_up (&cur_thread->parent->child_sema);
+          sema_up (&cur_thread->parent->reap_sema);
       }
       free (cur);
+      lock_release (&parent->child_list_lock);
     }
-
-    
-
   }
+  free_resources (thread_current ());
   thread_exit ();
 }
 

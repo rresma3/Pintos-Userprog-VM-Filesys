@@ -11,9 +11,11 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
+
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -479,8 +481,8 @@ init_thread (struct thread *t, const char *name, int priority)
 
   lock_init (&t->child_list_lock);
   t->exit_called = 0;
-  sema_init (&t->child_sema, 0);
-  sema_init (&t->load_sema, 0);
+  sema_init (&t->reap_sema, 0);
+  sema_init (&t->zombie_sema, 0);
   t->waited_on_child = 0;
   t->magic = THREAD_MAGIC;
   /*if we are initing the very first thread
