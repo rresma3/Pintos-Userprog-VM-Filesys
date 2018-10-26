@@ -178,6 +178,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid) 
 {
+  printf ("in process wait\n");
   /* Ryan Driving */
   int ret_exit_code = -1;
   // save reference to current thread
@@ -196,6 +197,7 @@ process_wait (tid_t child_tid)
       // our child is not being waited on, so we proceed
       cur_thread->waited_on_child = cur_child->child_tid;
       cur_child->waited_on = 1;
+      sema_up (&cur_thread->exit_sema);
       // release our child's lock before we attempt to reap
       lock_release (&cur_thread->child_list_lock);
       // try to reap, sema_up() will be called in exit handler
@@ -227,21 +229,8 @@ process_wait (tid_t child_tid)
 struct child*
 get_child(tid_t tid, struct thread *cur_thread)
 {
-  
-  // struct list_elem * b = NULL;
-  // for (b=list_begin(&all_list);
-  //      b!=list_end(&all_list); b=list_next(b))
-  // {
-  //   // save reference to our current child
-  //   struct thread *cur = list_entry(b, struct thread, allelem);
-  //   if (cur->tid == 0)
-  //   {
-  //     printf ("\n\n\nREEEEEEEEEEEEEEEEE: %s\n\n\n", cur->name);
-  //   }
-  // }
-  // parse the child list
+  printf ("getting child %d\n", tid);
   struct list_elem * e = NULL;
-  printf("\nthread: %s , tid %d has num childs: %d\n", cur_thread->name, cur_thread->tid,list_size (&cur_thread->child_list));
   for (e=list_begin(&cur_thread->child_list);
        e!=list_end(&cur_thread->child_list); e=list_next(e))
   {
@@ -249,16 +238,12 @@ get_child(tid_t tid, struct thread *cur_thread)
     struct child *result = list_entry(e, struct child, child_elem);
     ASSERT (result != NULL);
     // check if the tid's match, if so we have found our child
-    printf ("\nresult_child->tid %d\n", result->child_tid);
-    printf ("\nwaiting on %d\n", tid);
     if(result->child_tid == tid)
     {
       printf ("TID match\n");
       ASSERT (&cur_thread->child_list_lock != NULL);
-      lock_release (&cur_thread->child_list_lock);
       return result;
     }
-     printf ("freeing child: %d\n", result->child_tid);
     //free(result);
   }
   return NULL;
@@ -319,25 +304,32 @@ process_exit (void)
 
   /* must check if the current thread to be exited is a child
      of another thread, if so, we must update the child struct*/
-  lock_acquire (&parent->child_list_lock);
+  // lock_acquire (&parent->child_list_lock);
   if (parent != NULL && !list_empty(&parent->child_list))
   {
     // get the current thread's relevant child struct
-    struct child *cur = get_child (parent->waited_on_child, parent);
+    struct child *cur = get_child (cur_thread->tid, parent);
+    printf ("got child %d\n", cur->child_tid);
     if (cur != NULL)
     {
       cur->child_exit_code = cur_thread->exit_code;
+       printf ("set the childs exit code\n");
       /* wake up the current thread's parent if it is waiting
          on the exit code */
+         sema_down (&parent->exit_sema);
+         printf ("parent is waiting on: %d\n", cur_thread->parent->waited_on_child);
+         
       if (cur_thread->parent->waited_on_child == cur_thread->tid)
       {
+        printf ("found waited on child:\n");
         cur->waited_on = 0;
         sema_up (&cur_thread->parent->reap_sema);
       }    
     }
-    free (cur);
+   
+    //free (cur);
   }
-  lock_release (&parent->child_list_lock);
+  // lock_release (&parent->child_list_lock);
   // garbage collection
   cur_thread = NULL;
   parent = NULL;

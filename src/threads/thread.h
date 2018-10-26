@@ -126,6 +126,7 @@ struct thread
     //locks when starting a new child and waits for it to load
     struct semaphore child_sema;
 
+    struct semaphore exit_sema;
     // struct semaphore load_sema;
 
     int fd_count;
