@@ -139,6 +139,7 @@ start_process (void *file_name_)
   }
   else
   {
+    printf("load successful\n");
     //load succeeded, notify parent and sema up
     child->parent->load_success = true;
     sema_up (&child->parent->child_sema);
@@ -191,13 +192,16 @@ process_wait (tid_t child_tid)
     // check if the current child is being waited on already, if so, return
     if (cur_child->waited_on == 0)
     {
+      printf ("not being waited on\n");
       // our child is not being waited on, so we proceed
       cur_thread->waited_on_child = cur_child->child_tid;
       cur_child->waited_on = 1;
       // release our child's lock before we attempt to reap
       lock_release (&cur_thread->child_list_lock);
       // try to reap, sema_up() will be called in exit handler
+      printf ("reap sema down\n");
       sema_down (&cur_thread->reap_sema);
+      printf ("child has exited\n");
       // grab the child's exit code
       lock_acquire (&cur_thread->child_list_lock);
       list_remove (&cur_child->child_elem);
@@ -224,19 +228,17 @@ struct child*
 get_child(tid_t tid, struct thread *cur_thread)
 {
   
-  struct list_elem * b = NULL;
-  for (b=list_begin(&all_list);
-       b!=list_end(&all_list); b=list_next(b))
-  {
-    // save reference to our current child
-    struct thread *cur = list_entry(b, struct thread, allelem);
-    if (cur->tid == 0)
-    {
-      printf ("\n\n\nREEEEEEEEEEEEEEEEE: %s\n\n\n", cur->name);
-    }
-  }
-  // try to access the current thread's child list
-  lock_acquire (&cur_thread->child_list_lock);
+  // struct list_elem * b = NULL;
+  // for (b=list_begin(&all_list);
+  //      b!=list_end(&all_list); b=list_next(b))
+  // {
+  //   // save reference to our current child
+  //   struct thread *cur = list_entry(b, struct thread, allelem);
+  //   if (cur->tid == 0)
+  //   {
+  //     printf ("\n\n\nREEEEEEEEEEEEEEEEE: %s\n\n\n", cur->name);
+  //   }
+  // }
   // parse the child list
   struct list_elem * e = NULL;
   printf("\nthread: %s , tid %d has num childs: %d\n", cur_thread->name, cur_thread->tid,list_size (&cur_thread->child_list));
@@ -251,14 +253,14 @@ get_child(tid_t tid, struct thread *cur_thread)
     printf ("\nwaiting on %d\n", tid);
     if(result->child_tid == tid)
     {
+      printf ("TID match\n");
       ASSERT (&cur_thread->child_list_lock != NULL);
       lock_release (&cur_thread->child_list_lock);
       return result;
     }
-    free(result);
+     printf ("freeing child: %d\n", result->child_tid);
+    //free(result);
   }
-  // release the current thread's child list
-  lock_release (&cur_thread->child_list_lock);
   return NULL;
 }
 /* End Driving */
@@ -266,8 +268,9 @@ get_child(tid_t tid, struct thread *cur_thread)
 void 
 free_resources(struct thread *t)
 {
+  printf("in free resources\n");
   // if the current thread's parent isn't dead, we must call sema
-  if (&t->parent != NULL)
+  if (t->parent != NULL)
   {
     // we want to try to dereference the parent
     sema_down (&t->parent->zombie_sema);
@@ -307,14 +310,43 @@ free_resources(struct thread *t)
 void
 process_exit (void)
 {
-  struct thread *cur = thread_current ();
+  printf("in process exit\n");
+  struct thread *cur_thread = thread_current ();
   uint32_t *pd;
 
-  free_resources (cur);
+  // save reference to parent
+  struct thread *parent = cur_thread->parent;
+
+  /* must check if the current thread to be exited is a child
+     of another thread, if so, we must update the child struct*/
+  lock_acquire (&parent->child_list_lock);
+  if (parent != NULL && !list_empty(&parent->child_list))
+  {
+    // get the current thread's relevant child struct
+    struct child *cur = get_child (parent->waited_on_child, parent);
+    if (cur != NULL)
+    {
+      cur->child_exit_code = cur_thread->exit_code;
+      /* wake up the current thread's parent if it is waiting
+         on the exit code */
+      if (cur_thread->parent->waited_on_child == cur_thread->tid)
+      {
+        cur->waited_on = 0;
+        sema_up (&cur_thread->parent->reap_sema);
+      }    
+    }
+    free (cur);
+  }
+  lock_release (&parent->child_list_lock);
+  // garbage collection
+  cur_thread = NULL;
+  parent = NULL;
+
+  free_resources (cur_thread);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
-  pd = cur->pagedir;
+  pd = cur_thread->pagedir;
   if (pd != NULL) 
     {
       /* Correct ordering here is crucial.  We must set
@@ -324,7 +356,7 @@ process_exit (void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
-      cur->pagedir = NULL;
+      cur_thread->pagedir = NULL;
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }

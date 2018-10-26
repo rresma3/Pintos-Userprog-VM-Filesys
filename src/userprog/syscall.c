@@ -124,7 +124,7 @@ ptr_is_valid (void *ptr)
   }
   else
   {
-    //free resources()
+    printf ("\nbad pointer\n");
     return false;
   }
     // TODO: what if partially in stack?
@@ -160,36 +160,8 @@ syscall_exit_handler (struct intr_frame *f)
   int *my_esp = f->esp;
   if (ptr_is_valid ((void *) (my_esp + 1)))
   {
-    // save the status cod
-    struct thread *cur_thread = thread_current ();
-    // save reference to parent
-    struct thread *parent = cur_thread->parent;
-    cur_thread->exit_code = *(my_esp + 1);
-
-    /* must check if the current thread to be exited is a child
-       of another thread, if so, we must update the child struct*/
-    lock_acquire (&parent->child_list_lock);
-    if (parent != NULL && !list_empty(&parent->child_list))
-    {
-      // get the current thread's relevant child struct
-      struct child *cur = get_child (parent->waited_on_child, parent);
-      if (cur != NULL)
-      {
-        cur->child_exit_code = *(my_esp + 1);
-        /* wake up the current thread's parent if it is waiting
-           on the exit code */
-        if (cur_thread->parent->waited_on_child == cur_thread->tid)
-        {
-          cur->waited_on = 0;
-          sema_up (&cur_thread->parent->reap_sema);
-        }    
-      }
-      free (cur);
-    }
-    lock_acquire (&parent->child_list_lock);
-    // garbage collection
-    cur_thread = NULL;
-    parent = NULL;
+    thread_current ()->exit_code = *(my_esp + 1);
+    process_exit ();
   }
   else
   {

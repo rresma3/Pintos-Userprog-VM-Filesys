@@ -192,33 +192,24 @@ thread_create (const char *name, int priority,
   tid = t->tid = allocate_tid ();
   /*if we are initializing the very first thread
   we set our parent to null*/
-  struct list_elem * e;
-  for (e=list_begin(&thread_current ()->child_list);
-       e!=list_end(&thread_current ()->child_list); e=list_next(e))
-  {
-    // save reference to our current child
-    struct child *result = list_entry(e, struct child, child_elem);
-    printf ("\nchild_tid: %d\n", result->child_tid);
-  }
-  printf ("\nis main? %d\n", strcmp(t->name, "main"));
-  printf("\nthead name %s: tid: %d\n", t->name, t->tid);
-  if (strcmp(t->name, "main") == 0)
-  {
-    printf("\nthread is main %s\n", t->name);
-    t->parent = NULL;
-  } 
-  else 
-  {
-    t->parent = running_thread();
+  // struct list_elem * e;
+  // for (e=list_begin(&thread_current ()->child_list);
+  //      e!=list_end(&thread_current ()->child_list); e=list_next(e))
+  // {
+  //   // save reference to our current child
+  //   struct child *result = list_entry(e, struct child, child_elem);
+  //   printf ("\nchild_tid: %d\n", result->child_tid);
+  // }
+    printf("\nthread name %s: tid: %d\n", t->name, t->tid);
     // create a child structure to add to the creating thread's child list
     struct child *my_child = (struct child *) malloc (sizeof (struct child));
     my_child->child_tid = t->tid;
     my_child->waited_on = 0;
     my_child->child_exit_code = 0;
-    printf("\npushing child  %d to parent %s\n", my_child->child_tid, t->parent->name);
+    printf("\npushing child  %d to parent %s\n", tid, t->parent->name);
     list_push_back (&running_thread()->child_list, &my_child->child_elem);
     /* End Driving */
-  }
+  
   ASSERT (thread_current ()->tid != tid);
 
 
@@ -518,6 +509,19 @@ init_thread (struct thread *t, const char *name, int priority)
   sema_init (&t->reap_sema, 0);
   sema_init (&t->zombie_sema, 0);
   t->waited_on_child = 0;
+
+  printf ("\nis main? %d\n", strcmp(t->name, "main"));
+
+  if (strcmp(t->name, "main") == 0)
+  {
+    printf("\nthread is main %s\n", t->name);
+    t->parent = NULL;
+  } 
+  else 
+  {
+    t->parent = thread_current ();
+  }
+
   t->magic = THREAD_MAGIC;
 
   
