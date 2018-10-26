@@ -19,7 +19,7 @@
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
-   of thread.h for details. */
+   of thread.h for details. *///
 #define THREAD_MAGIC 0xcd6abf4b
 
 /* List of processes in THREAD_READY state, that is, processes
@@ -28,7 +28,7 @@ static struct list ready_list;
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
-static struct list all_list;
+//static struct list all_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -187,8 +187,39 @@ thread_create (const char *name, int priority,
     return TID_ERROR;
 
   /* Initialize thread. */
+  
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+  /*if we are initializing the very first thread
+  we set our parent to null*/
+  struct list_elem * e;
+  for (e=list_begin(&thread_current ()->child_list);
+       e!=list_end(&thread_current ()->child_list); e=list_next(e))
+  {
+    // save reference to our current child
+    struct child *result = list_entry(e, struct child, child_elem);
+    printf ("\nchild_tid: %d\n", result->child_tid);
+  }
+  printf ("\nis main? %d\n", strcmp(t->name, "main"));
+  printf("\nthead name %s: tid: %d\n", t->name, t->tid);
+  if (strcmp(t->name, "main") == 0)
+  {
+    printf("\nthread is main %s\n", t->name);
+    t->parent = NULL;
+  } 
+  else 
+  {
+    t->parent = running_thread();
+    // create a child structure to add to the creating thread's child list
+    struct child *my_child = (struct child *) malloc (sizeof (struct child));
+    my_child->child_tid = t->tid;
+    my_child->waited_on = 0;
+    my_child->child_exit_code = 0;
+    printf("\npushing child  %d to parent %s\n", my_child->child_tid, t->parent->name);
+    list_push_back (&running_thread()->child_list, &my_child->child_elem);
+    /* End Driving */
+  }
+  ASSERT (thread_current ()->tid != tid);
 
 
   /* Stack frame for kernel_thread(). */
@@ -474,6 +505,10 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init (&t->file_list);
   /* End Driving */
 
+  //init the load success property
+  t->load_success = false;
+  sema_init (&t->child_sema, 0);
+
   /* Ryan Driving */
   t->exit_code = 0;
   t->fd_count = 2;
@@ -485,23 +520,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->waited_on_child = 0;
   t->magic = THREAD_MAGIC;
 
-  /*if we are initializing the very first thread
-  we set our parent to null*/
-  if (!strcmp(t->name, "main"))
-  {
-    t->parent = NULL;
-  } 
-  else 
-  {
-    t->parent = thread_current();
-    // create a child structure to add to the creating thread's child list
-    struct child *my_child = (struct child *) malloc (sizeof (struct child));
-    my_child->child_tid = t->tid;
-    my_child->waited_on = 0;
-    my_child->child_exit_code = 0;
-    list_push_back (&thread_current()->child_list, &my_child->child_elem);
-    /* End Driving */
-  }
+  
 
   old_level = intr_disable();
   list_push_back (&all_list, &t->allelem);
@@ -621,3 +640,4 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+

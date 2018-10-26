@@ -124,6 +124,7 @@ ptr_is_valid (void *ptr)
   }
   else
   {
+    //free resources()
     return false;
   }
     // TODO: what if partially in stack?
@@ -498,20 +499,17 @@ syscall_close_handler (struct intr_frame *f)
 static void 
 syscall_exec_handler (struct intr_frame *f)
 {
-  // printf ("in exec handler\n");
-  // int *my_esp = f->esp;
-  // if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) *(my_esp + 1)))
-  // {
-  //   char* cmd_line = (char*) (*(my_esp + 1));
-  //   printf ("cmd_line: %s\n", cmd_line);
-  //   struct thread *cur = thread_current ();
-  //   int child_pid = 0;
-  //   child_pid = process_execute (cmd_line);
-  //   sema_down (&cur->load_sema);
-    
-     
-  // }
-  f->eax = 0;
+  printf("in exec handler\n");
+  int *my_esp = (int*) f->esp;
+  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (*(my_esp + 1))))
+  {
+    //ptr is valid
+    char* cmd_line = (char*) *(my_esp + 1);
+    tid_t new_tid = process_execute (cmd_line);
+    f->eax = new_tid;
+  }
+
+  
 }
 
 static void 

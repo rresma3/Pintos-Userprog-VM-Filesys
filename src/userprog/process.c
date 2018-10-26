@@ -23,6 +23,7 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (char *argv[], int argc, void (**eip) (void), void **esp);
+//extern struct list all_list;
 
 
 /* Sam Driving */
@@ -53,8 +54,19 @@ process_execute (const char *file_name)
   strlcpy (fn_copy, file_name, PGSIZE);
 
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  struct thread *cur = thread_current ();
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+  {
+    palloc_free_page (fn_copy);
+  }
+
+  sema_down (&cur->child_sema);
+  if (!cur->load_success)
+  {
+    return -1;
+  }
+  
+  
   return tid;
 }
 
@@ -64,7 +76,6 @@ static void
 start_process (void *file_name_)
 {
   char *file_name = file_name_;
-  printf("INSIDE STARt PROCESS %s\n", file_name);
   struct intr_frame if_;
   bool success;
 
@@ -110,17 +121,30 @@ start_process (void *file_name_)
     arg_vector[i] = argument;
   }
 /*now arg_vector contains the argument vector */
-  int j;
-  for (j = 0; j < argc; j++)
-    printf("arg_vector: %s: %d\n", arg_vector[j], strlen(arg_vector[j]));
+  
 
 
   success = load ( arg_vector, argc, &if_.eip, &if_.esp);
-
+  
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success) 
+  //get the current thread which is the child
+  struct thread *child = thread_current ();
+  if (!success)
+  {
+    //load failed, notify the parent and sema up
+    child->parent->load_success = false;
+    sema_up (&child->parent->child_sema);
     thread_exit ();
+  }
+  else
+  {
+    //load succeeded, notify parent and sema up
+    child->parent->load_success = true;
+    sema_up (&child->parent->child_sema);
+  }
+
+    
   // else
   // {
   //   ASSERT (success);
@@ -154,7 +178,6 @@ int
 process_wait (tid_t child_tid) 
 {
   /* Ryan Driving */
-  printf("in wait\n");
   int ret_exit_code = -1;
   // save reference to current thread
   struct thread *cur_thread = thread_current ();
@@ -190,6 +213,7 @@ process_wait (tid_t child_tid)
   // garbage collect
   cur_thread = NULL;
   cur_child = NULL;
+  //while(1){}
   return ret_exit_code;
   /* End driving */
 }
@@ -199,18 +223,35 @@ process_wait (tid_t child_tid)
 struct child*
 get_child(tid_t tid, struct thread *cur_thread)
 {
+  
+  struct list_elem * b = NULL;
+  for (b=list_begin(&all_list);
+       b!=list_end(&all_list); b=list_next(b))
+  {
+    // save reference to our current child
+    struct thread *cur = list_entry(b, struct thread, allelem);
+    if (cur->tid == 0)
+    {
+      printf ("\n\n\nREEEEEEEEEEEEEEEEE: %s\n\n\n", cur->name);
+    }
+  }
   // try to access the current thread's child list
   lock_acquire (&cur_thread->child_list_lock);
   // parse the child list
-  struct list_elem * e;
+  struct list_elem * e = NULL;
+  printf("\nthread: %s , tid %d has num childs: %d\n", cur_thread->name, cur_thread->tid,list_size (&cur_thread->child_list));
   for (e=list_begin(&cur_thread->child_list);
        e!=list_end(&cur_thread->child_list); e=list_next(e))
   {
     // save reference to our current child
     struct child *result = list_entry(e, struct child, child_elem);
+    ASSERT (result != NULL);
     // check if the tid's match, if so we have found our child
+    printf ("\nresult_child->tid %d\n", result->child_tid);
+    printf ("\nwaiting on %d\n", tid);
     if(result->child_tid == tid)
     {
+      ASSERT (&cur_thread->child_list_lock != NULL);
       lock_release (&cur_thread->child_list_lock);
       return result;
     }
@@ -381,7 +422,6 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 bool
 load (char *argv[], int argc, void (**eip) (void), void **esp) 
 {
-  printf("INSIDE LOAD\n");
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
   struct file *file = NULL;
@@ -393,7 +433,6 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL)
   {
-      printf("pagedir == NULL\n");
       goto done;
   } 
 
@@ -401,11 +440,9 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
 
   /* Open executable file. */
 
-  printf("!!Loading file %s with arg %s!!\n", argv[0], argv[1]);
   file = filesys_open (argv[0]);
   if (file == NULL) 
     {
-      printf ("load: %s: open failed\n", argv[0]);
       goto done; 
     }
 
@@ -418,7 +455,6 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
       || ehdr.e_phentsize != sizeof (struct Elf32_Phdr)
       || ehdr.e_phnum > 1024) 
     {
-      printf ("load: %s: error loading executable\n", argv[0]);
       goto done; 
     }
 
@@ -430,7 +466,6 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
 
       if (file_ofs < 0 || file_ofs > file_length (file))
       {
-          printf("file_ofs < 0\n");
           goto done;
       }
         
@@ -438,7 +473,6 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
 
       if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
       {
-            printf("file_read != phdr\n");
            goto done;
       }
        
@@ -455,7 +489,6 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
         case PT_DYNAMIC:
         case PT_INTERP:
         case PT_SHLIB:
-          printf("PT_SHLIB\n");
           goto done;
         case PT_LOAD:
           if (validate_segment (&phdr, file)) 
@@ -483,7 +516,6 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
               if (!load_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))
                                  {
-                                   printf("!load_seg\n");
                                     goto done;
                                  }
                                 
@@ -491,7 +523,6 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
             }
           else
           {
-              printf("else\n");
               goto done;
           }
             
@@ -500,7 +531,6 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  printf("above call to setup stack!\n");
   if (!setup_stack (argv, argc, esp))
     goto done;
   
@@ -511,8 +541,6 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
   success = true;
 
  done:
- printf("UNDER DONE\n");
- printf("ABOVE HEX_DUMP\n");
  //hex_dump((int)esp, esp, ((int)PHYS_BASE - (int)esp), true);
   /* We arrive here whether the load is successful or not. */
   file_close (file);
@@ -704,7 +732,7 @@ setup_stack (char *argv[], int argc, void **esp)
         esp_cpy -= sizeof (void *);
         memcpy (esp_cpy, &zero, sizeof (void *));
         *esp = esp_cpy;
-        hex_dump((int*)esp_cpy, (int*)esp_cpy, (int)(PHYS_BASE - (int)esp_cpy), true);
+        //hex_dump((int*)esp_cpy, (int*)esp_cpy, (int)(PHYS_BASE - (int)esp_cpy), true);
       }
       else
         palloc_free_page (kpage);

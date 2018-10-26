@@ -119,6 +119,13 @@ struct thread
     // keep track of the child for which a thread waits
     tid_t waited_on_child;
 
+    //var that tells if a thread was loaded correctly
+
+    bool load_success;
+
+    //locks when starting a new child and waits for it to load
+    struct semaphore child_sema;
+
     // struct semaphore load_sema;
 
     int fd_count;
@@ -168,5 +175,9 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+static struct list all_list;
+
+
 
 #endif /* threads/thread.h */
