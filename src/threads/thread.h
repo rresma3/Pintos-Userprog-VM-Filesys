@@ -99,40 +99,34 @@ struct thread
     /** PROJECT 2: USER PROGRAMS **/
 
     /* Brian Driving */
-    // list of open files
+    /* list of open files */
     struct list file_list;
-    /* End Driving */
     struct file *executable;
-    /* Ryan Driving */
-    // used for when a process exits
+    /* End Driving */
+    /* Sam Driving */
+    /* used for when a process exits */
     int exit_code;
-    // list of all this process's children, child struct defined in process.h
+    /* list of all this process's children, child struct defined in process.h */
     struct list child_list;
     /* synchronize access to child list */
     struct lock child_list_lock;
-    // reference for passing resources to parent thread
+    /* reference for passing resources to parent thread */
     struct thread *parent;
-    // used for when a thread waits on a child
+    /* used for when a thread waits on a child */
     struct semaphore reap_sema;
-    // used for when a thread turns into a zombie
+    /* used for when a thread turns into a zombie */
     struct semaphore zombie_sema;
-    // keep track of the child for which a thread waits
+    /* keep track of the child for which a thread waits */
     tid_t waited_on_child;
-
-    //var that tells if a thread was loaded correctly
-
+    /* var that tells if a thread was loaded correctly */
     bool load_success;
-
-    //locks when starting a new child and waits for it to load
+    /* locks when starting a new child and waits for it to load */
     struct semaphore child_sema;
-
+    /* locks when exiting a call to exit */
     struct semaphore exit_sema;
-    // struct semaphore load_sema;
-
+    /* keep track of fd count */
     int fd_count;
-
-    bool set_exit;
-    /* End Driving */
+    /* End Sam Driving */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
