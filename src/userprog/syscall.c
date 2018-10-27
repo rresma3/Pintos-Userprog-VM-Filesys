@@ -3,7 +3,7 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-// Brian Driving
+/* Sam Driving */
 #include <string.h>
 #include "devices/shutdown.h"
 #include "threads/vaddr.h"
@@ -14,11 +14,11 @@
 #include "pagedir.h"
 #include "devices/input.h"
 #include "threads/malloc.h"
-
-
-static void syscall_handler (struct intr_frame *);
+/* End Driving */
 
 /* Miles Driving */
+static void syscall_handler (struct intr_frame *);
+
 static bool valid_ptr (int *ptr);
 /* End Driving */
 
@@ -36,13 +36,11 @@ static void write_handler (struct intr_frame *f);
 static void seek_handler (struct intr_frame *f);
 static void tell_handler (struct intr_frame *f);
 static void close_handler (struct intr_frame *f);
-/* End Driving */
-
-/* Ryan Driving */
 static void error_exit (int exit_status);
 /* End Driving */
 
 
+/* Handles all syscalls */
 void
 syscall_init (void) 
 {
@@ -50,25 +48,20 @@ syscall_init (void)
   lock_init (&file_sys_lock);
 }
 
+
+/* Brian Driving */
 static void
 syscall_handler (struct intr_frame *f) 
 {
-  
-  //printf ("system call!\n");
-
-
   int* my_esp = f->esp;
   
   if (!valid_ptr (my_esp))
   {
-    // BAD!
+    /* BAD! */
     error_exit(-1);
   }
-
-
   int syscall_num = *(my_esp);
 
-  // B-Dawg drivin'.
   switch (syscall_num)
   {
     case SYS_HALT :
@@ -111,36 +104,34 @@ syscall_handler (struct intr_frame *f)
       close_handler (f);
       break;
     default :
-      printf ("passing in invalid system call number!\n");
       error_exit (-1);
       break;
   }
 }
+/* End Driving */
 
-// - Brian 🤠 
-// Returns true iff ptr is properly allocated in user memory
+/* Miles Driving */
+/* Returns true iff ptr is properly allocated in user memory */
 bool
 valid_ptr (int *ptr)
 {
   struct thread *cur = thread_current ();
 
-  if (ptr == NULL)
-    return false;
-
-  if (is_kernel_vaddr(ptr) || pagedir_get_page(cur->pagedir, ptr) == NULL)
-    {
-      return false;
-    }
-    return true;
+  return !(ptr == NULL || is_kernel_vaddr (ptr) ||
+           pagedir_get_page (cur->pagedir, ptr) == NULL);
 }
+/* End Driving */
 
 
-// Brian driving
+/* Brian Driving */
+/* Terminates Pintos by calling shutdown_power_off() */
 static void
 halt_handler ()
 {
   shutdown_power_off ();
 }
+/* End Driving */
+
 
 /* Ryan Driving */
 /* Widely used method to handle bad pointer or invalid 
@@ -155,14 +146,16 @@ error_exit (int exit_status)
 }
 /* End Driving */
 
+
 /* Ryan Driving */
-/* handles syscalls to exit, closing files,
-   freeing memory, and modifying exit statuses */
+/* Terminates the current user program, returning status to the kernel. 
+   If the process's parent waits for it, this is the status that will be 
+   returned. Conventionally, a status of 0 indicates success and nonzero
+   values indicate errors. */
 static void
 exit_handler (struct intr_frame *f)
 {
-  //printf("in exit handler\n");
-  // grab the esp off intr_frame
+  /* grab the esp off intr_frame */
   int *my_esp = f->esp;
 
   if (valid_ptr (my_esp + 1))
@@ -172,11 +165,11 @@ exit_handler (struct intr_frame *f)
   }
   else
   {
-    //printf ("invalid pointer");
     error_exit (-1);
   }
 }
 /* End Driving */
+
 
 /* Ryan Driving */
 /* system call handler for wait: validates the pid passed in is a valid
@@ -187,50 +180,54 @@ exit_handler (struct intr_frame *f)
 static void 
 wait_handler (struct intr_frame *f)
 {
-  //printf("in wait handler\n");
   int *my_esp = f->esp;
-  // check valid pointer
+  /* check valid pointer */
   if (valid_ptr (my_esp + 1))
   {
     f->eax = process_wait (*(my_esp + 1));
   }
   else
   {
-    //printf ("invalid pointer");
     error_exit (-1);
   }
 }
 /* End Driving */
 
 
-/* handles a create file sys call */
+/* Sam Driving */
+/* Creates a new file called file initially initial_size bytes in size.
+  Returns true if successful, false otherwise. Creating a new file does 
+  not open it: opening the new file is a separate operation which would
+  require a open system call. */
 static void 
 create_handler (struct intr_frame *f)
 {
   int *my_esp = (int*) f->esp;
   if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2)
       && valid_ptr ((int*) *(my_esp + 1)))
-  {
-     
-    //both args are valid.
+  { /* both args are valid. */
     lock_acquire (&file_sys_lock);
+
+    /* Make args into clear var names */
     char *f_name = (char*) *(my_esp + 1);
     unsigned initial_size = (unsigned) *(my_esp + 2);
+
     f->eax = filesys_create (f_name, initial_size);
     lock_release (&file_sys_lock);
- 
   }
   else
   {
     error_exit (-1);
   }
 }
+/* End Driving */
 
 
+/* Brian Driving */
+/* Returns the size, in bytes, of the file open as fd. */
 static void 
 filesize_handler (struct intr_frame *f)
 {
-  //printf("in filesize handler\n");
   int *my_esp = (int*) f->esp;
   if (valid_ptr (my_esp + 1))
   {
@@ -242,14 +239,16 @@ filesize_handler (struct intr_frame *f)
 
     int fd = *(my_esp + 1);
 
-    for (iterator = list_begin(cur_file_list);
+    /* Loop thru file list until fd is found */
+    for (iterator = list_begin (cur_file_list);
          iterator != list_end (cur_file_list);
          iterator = list_next (iterator))
       {
         cur_file = list_entry (iterator, struct file_elem, elem);
         if (cur_file != NULL && cur_file->fd == fd)
         {
-          f->eax = file_length (cur_file->file); // Set return value to size
+          /* Set return value to size */
+          f->eax = file_length (cur_file->file);
         }
       }
     lock_release (&file_sys_lock);
@@ -259,17 +258,23 @@ filesize_handler (struct intr_frame *f)
     error_exit (-1);
   }
 }
+/* End Driving */
 
+
+/* Miles Driving */
+/* Reads size bytes from the file open as fd into buffer. Returns the number
+   of bytes actually read (0 at end of file), or -1 if the file could not be 
+   read (due to a condition other than end of file). fd 0 reads from the 
+   keyboard using input_getc(). */
 static void 
 read_handler (struct intr_frame *f)
 {
-  
   int *my_esp = (int*) f->esp;
-  // Check second to last arg's content and then last arg
-   // Check second to last arg's content and then last arg
+  /* Check second to last arg's content and then last arg */
   if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2)
       && valid_ptr (my_esp + 3) && valid_ptr ((int*) *(my_esp + 2)))
   {
+    /* Make args into clear var names */
     int fd = *(my_esp + 1);
     char **buf_ptr = (char**)(my_esp + 2);
     int size = *(my_esp + 3);
@@ -291,7 +296,7 @@ read_handler (struct intr_frame *f)
       lock_acquire (&file_sys_lock);
       struct list *cur_file_list = &thread_current ()->file_list;
 
-
+      /* Loop thru file list until fd is found */
       for (iterator = list_begin(cur_file_list);
            iterator != list_end (cur_file_list);
            iterator = list_next (iterator))
@@ -315,40 +320,31 @@ read_handler (struct intr_frame *f)
     error_exit (-1);
   }
 }
+/* End Driving */
 
 
+/* Ryan Driving */
+/* Writes size bytes from buffer to the open file fd. Returns the number of
+   bytes actually written, which may be less than size if some bytes could not
+   be written. */
 static void 
 write_handler (struct intr_frame *f)
 { 
-
   int *my_esp = (int*) f->esp;
 
-  // Check second to last arg's content and then last arg
+  /* Check second to last arg's content and then last arg */
   if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2)
       && valid_ptr (my_esp + 3) && valid_ptr ((int *)(*(my_esp + 2))))
   {
-    //hex_dump(my_esp, my_esp, (int)(PHYS_BASE - (int)my_esp), true);
+    /* Make args into clear var names */
     int fd = *(my_esp + 1);
-    //printf ("\n\n in write: fd is %d\n\n", fd);
     char **buf_ptr = (char**)(my_esp + 2);
     int size = *(my_esp + 3);
-    //printf ("wiriting size: %d\n", size);
     char *buf = *buf_ptr;
-    
-        // printf ("\nbuf: %s\n", (buf));
-        // int i;
-        // for (i = size; i >= 0; i--) 
-        // {
-        // printf ("\nbuffer elem %d is %s\n", i, &buf[i]);
-        // }
-
+   
     if (fd == 1)
-    { // Write to console
-      //printf ("write to console\n");
-      //ASSERT(1 == 23);
-      
+    { /* Write to console */
       putbuf (buf, size);
-
       f->eax = size;
     }
     else
@@ -358,26 +354,24 @@ write_handler (struct intr_frame *f)
       lock_acquire (&file_sys_lock);
       struct list *cur_file_list = &thread_current ()->file_list;
 
-      
-
-      for (iterator = list_begin(cur_file_list);
+      /* Loop thru file list until fd is found */
+      for (iterator = list_begin (cur_file_list);
            iterator != list_end (cur_file_list);
            iterator = list_next (iterator))
         {
           cur_file = list_entry (iterator, struct file_elem, elem);
           if (cur_file != NULL && cur_file->fd == fd)
           {
-            f->eax = file_write (cur_file->file, (void*) (my_esp + 2), *(my_esp + 3));
+            f->eax = file_write (cur_file->file, (void*) (my_esp + 2),
+                    *(my_esp + 3));
             break;
           }
           else
           {
-            //printf ("\n\nin write, setting eax to -1\n\n");
             f->eax = -1;
           }
         }
         lock_release (&file_sys_lock);
-        
     }
   }
   else
@@ -385,8 +379,13 @@ write_handler (struct intr_frame *f)
     error_exit (-1);
   }
 }
+/* End Driving */
 
 
+/* Sam Driving */
+/* Changes the next byte to be read or written in open file fd to position,
+   expressed in bytes from the beginning of the file. (Thus, a position of 0 is
+   the file's start.) */
 static void 
 seek_handler (struct intr_frame *f)
 {
@@ -402,7 +401,8 @@ seek_handler (struct intr_frame *f)
     int fd = *(my_esp + 1);
     unsigned int position = *(my_esp + 2);
 
-    for (iterator = list_begin(cur_file_list);
+    /* Loop thru file list until fd is found */
+    for (iterator = list_begin (cur_file_list);
          iterator != list_end (cur_file_list);
          iterator = list_next (iterator))
       {
@@ -419,12 +419,15 @@ seek_handler (struct intr_frame *f)
     error_exit (-1);
   }
 }
+/* End Driving */
 
 
+/* Brian Driving */
+/* Returns the position of the next byte to be read or written in open file fd,
+   expressed in bytes from the beginning of the file. */
 static void 
 tell_handler (struct intr_frame *f)
 {
-  //printf("in tell handler\n");
   int *my_esp = (int*) f->esp;
   if (valid_ptr (my_esp + 1))
   {
@@ -436,7 +439,8 @@ tell_handler (struct intr_frame *f)
 
     int fd = *(my_esp + 1);
 
-    for (iterator = list_begin(cur_file_list);
+    /* Loop thru file list until fd is found */
+    for (iterator = list_begin (cur_file_list);
          iterator != list_end (cur_file_list);
          iterator = list_next (iterator))
       {
@@ -453,13 +457,16 @@ tell_handler (struct intr_frame *f)
     error_exit (-1);
   }
 }
+/* End Driving */
 
 
-
+/* Miles Driving */
+/* Closes file descriptor fd. Exiting or terminating a process implicitly
+   closes all its open file descriptors, as if by calling this function for
+   each one. */
 static void 
 close_handler (struct intr_frame *f) 
 {
-  //printf("in close handler\n");
   int *my_esp = (int*) f->esp;
   if (valid_ptr (my_esp + 1) && ((int *)(*(my_esp + 1)) != NULL))
   {
@@ -471,45 +478,54 @@ close_handler (struct intr_frame *f)
 
     int fd = (int)(*(my_esp + 1));
 
+    /* Verify is not main or idle thread */
     if (fd == 0 || fd == 1)
     {
       lock_release (&file_sys_lock);
       return;
     }
 
-    // TODO: optimize loop
-    for (iterator = list_begin(cur_file_list);
+    /* Loop thru file list until fd is found */
+    for (iterator = list_begin (cur_file_list);
          iterator != list_end (cur_file_list);
          iterator = list_next (iterator))
       {
         cur_file = list_entry (iterator, struct file_elem, elem);
         if (cur_file != NULL && cur_file->fd == fd)
         {
-          list_remove (iterator); // Remove file from list
-          file_close (cur_file->file);  // Close file.
+          /* Remove file from list */
+          list_remove (iterator);
+          /* Close file. */
+          file_close (cur_file->file);
           break;
         }
       }
     lock_release (&file_sys_lock);
-    
   }
   else
   {
     error_exit (-1);
   }
 }
+/* End Driving */
 
 
-
+/* Ryan Driving */
+/* Runs the executable whose name is given in cmd_line, passing any given
+   arguments, and returns the new process's program id (pid). Must return 
+   pid -1, which otherwise should not be a valid pid, if the program cannot 
+   load or run for any reason. Thus, the parent process cannot return from the
+   exec until it knows whether the child process successfully loaded
+   its executable. */
 static void 
 exec_handler (struct intr_frame *f)
 {
-  //printf("in exec handler\n");
   int *my_esp = (int*) f->esp;
   if (valid_ptr (my_esp + 1) && valid_ptr ((int *)(*(my_esp + 1))))
   {
-    //ptr is valid
+    /* ptr is valid */
     char* cmd_line = (char*) *(my_esp + 1);
+    /* Create new process with new args */
     tid_t new_tid = process_execute (cmd_line);
     f->eax = new_tid;
   }
@@ -518,15 +534,21 @@ exec_handler (struct intr_frame *f)
     error_exit (-1);
   }
 }
+/* End Driving */
 
+
+/* Miles Driving */
+/* Deletes the file called file. Returns true if successful, false otherwise.
+   A file may be removed regardless of whether it is open or closed, and 
+   removing an open file does not close it. */
 static void 
 remove_handler (struct intr_frame *f)
 {
-  //printf("in remove handler\n");
   int *my_esp = f->esp;
   if (valid_ptr (my_esp + 1) && valid_ptr ((int *)(*(my_esp + 1))))
   {
     lock_acquire (&file_sys_lock);
+    /* delete file */
     f->eax = filesys_remove ((char*) *(my_esp + 1));
     lock_release (&file_sys_lock);
   }
@@ -536,23 +558,24 @@ remove_handler (struct intr_frame *f)
     error_exit (-1);
   }
 }
+/* End Driving */
 
+
+/* Sam Driving */
+/* Opens the file called file. Returns a nonnegative integer handle called
+   a "file descriptor" (fd) or -1 if the file could not be opened. */
 static void 
 open_handler (struct intr_frame *f)
 {
-  //printf("in open handler\n");
   int *my_esp = f->esp;
   if (valid_ptr (my_esp + 1) && valid_ptr ((int *)(*(my_esp + 1))))
   {
-    //printf("pointers valid\n");
     lock_acquire (&file_sys_lock);
     char *f_name = (char*) (*(my_esp + 1));
-    //printf("openeing file: %s\n", f_name);
     struct file *cur_file = filesys_open (f_name);
     lock_release (&file_sys_lock);
     if (cur_file == NULL)
-    {
-      //printf("file null\n");
+    { /* Bad file name */
       f->eax = -1;
     }
     else
@@ -561,16 +584,20 @@ open_handler (struct intr_frame *f)
       f_elem->file = cur_file;
       struct thread *cur = thread_current ();
       f_elem->fd = cur->fd_count;
+      /* Create unique fd_count every time file opened */
       cur->fd_count++;
+
       lock_acquire (&file_sys_lock);
+      /* Add to file list */
       list_push_front (&cur->file_list, &f_elem->elem);
       lock_release (&file_sys_lock);
+
       f->eax = f_elem->fd;
     }
-    
   }
   else
   {
     error_exit (-1);
   }
 }
+/* End Driving */

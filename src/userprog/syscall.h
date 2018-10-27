@@ -3,6 +3,7 @@
 
 #include "list.h"
 
+/* Brian Driving */
 void syscall_init (void);
 
 /*locks file access*/
@@ -15,5 +16,6 @@ struct file_elem
     struct file *file;
     struct list_elem elem;
  };
+ /* End Driving */
 
 #endif /* userprog/syscall.h */
