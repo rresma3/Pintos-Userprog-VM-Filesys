@@ -253,14 +253,16 @@ get_child(tid_t tid, struct thread *cur_thread)
 void 
 free_resources(struct thread *t)
 {
-  printf("in free resources\n");
+  printf("in free resources: %s\n" , t->name);
+  printf ("parent name: %s\n", t->parent->name); 
   // if the current thread's parent isn't dead, we must call sema
   if (t->parent != NULL)
   {
+    printf("parent not null\n");
     // we want to try to dereference the parent
     sema_down (&t->parent->zombie_sema);
   }
- 
+  
   struct list_elem *iterator = NULL;
   struct file_elem *cur_file = NULL;
   struct child *cur_child = NULL;
@@ -295,7 +297,7 @@ free_resources(struct thread *t)
 void
 process_exit (void)
 {
-  printf("in process exit\n");
+  printf("\nin process exit\n");
   struct thread *cur_thread = thread_current ();
   uint32_t *pd;
 
@@ -331,10 +333,11 @@ process_exit (void)
   }
   // lock_release (&parent->child_list_lock);
   // garbage collection
+  free_resources (cur_thread);
   cur_thread = NULL;
   parent = NULL;
 
-  free_resources (cur_thread);
+  
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

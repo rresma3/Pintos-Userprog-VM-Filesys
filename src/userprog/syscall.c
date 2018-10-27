@@ -315,15 +315,18 @@ syscall_write_handler (struct intr_frame *f)
   if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 2))
       && ptr_is_valid ((void*) (my_esp + 3)) && ptr_is_valid ((void*) (*(my_esp + 2))))
   {
+    hex_dump(my_esp, my_esp, (int)(PHYS_BASE - (int)my_esp), true);
     int fd = *(my_esp + 1);
     char **buf_ptr = (char**)(my_esp + 2);
     int size = *(my_esp + 3);
     char *buf = *buf_ptr;
     
-
-    printf ("first arg: %x\n", fd);
-    printf ("size: %d\n", size);
-    //printf ("buf: %s\n", (buf));
+    printf ("\nbuf: %s\n", (buf));
+    int i;
+    for (i = 0; i< size; i++) 
+    {
+      printf ("\nbuffer elem %d is %s\n", i, &buf[i]);
+    }
 
     if (fd == 1)
     { // Write to console
