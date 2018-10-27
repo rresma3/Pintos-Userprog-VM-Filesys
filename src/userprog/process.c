@@ -139,7 +139,7 @@ start_process (void *file_name_)
   }
   else
   {
-    printf("load successful\n");
+    //printf("load successful\n");
     //load succeeded, notify parent and sema up
     child->parent->load_success = true;
     sema_up (&child->parent->child_sema);
@@ -178,7 +178,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid) 
 {
-  printf ("in process wait\n");
+  //printf ("in process wait\n");
   /* Ryan Driving */
   int ret_exit_code = -1;
   // save reference to current thread
@@ -193,7 +193,7 @@ process_wait (tid_t child_tid)
     // check if the current child is being waited on already, if so, return
     if (cur_child->waited_on == 0)
     {
-      printf ("not being waited on\n");
+      //printf ("not being waited on\n");
       // our child is not being waited on, so we proceed
       cur_thread->waited_on_child = cur_child->child_tid;
       cur_child->waited_on = 1;
@@ -201,9 +201,9 @@ process_wait (tid_t child_tid)
       // release our child's lock before we attempt to reap
       lock_release (&cur_thread->child_list_lock);
       // try to reap, sema_up() will be called in exit handler
-      printf ("reap sema down\n");
+      //printf ("reap sema down\n");
       sema_down (&cur_thread->reap_sema);
-      printf ("child has exited\n");
+      //printf ("child has exited\n");
       // grab the child's exit code
       lock_acquire (&cur_thread->child_list_lock);
       list_remove (&cur_child->child_elem);
@@ -229,7 +229,7 @@ process_wait (tid_t child_tid)
 struct child*
 get_child(tid_t tid, struct thread *cur_thread)
 {
-  printf ("getting child %d\n", tid);
+  //printf ("getting child %d\n", tid);
   struct list_elem * e = NULL;
   for (e=list_begin(&cur_thread->child_list);
        e!=list_end(&cur_thread->child_list); e=list_next(e))
@@ -240,7 +240,7 @@ get_child(tid_t tid, struct thread *cur_thread)
     // check if the tid's match, if so we have found our child
     if(result->child_tid == tid)
     {
-      printf ("TID match\n");
+      //printf ("TID match\n");
       ASSERT (&cur_thread->child_list_lock != NULL);
       return result;
     }
@@ -253,12 +253,12 @@ get_child(tid_t tid, struct thread *cur_thread)
 void 
 free_resources(struct thread *t)
 {
-  printf("in free resources: %s\n" , t->name);
-  printf ("parent name: %s\n", t->parent->name); 
+  //printf("in free resources: %s\n" , t->name);
+  //printf ("parent name: %s\n", t->parent->name); 
   // if the current thread's parent isn't dead, we must call sema
   if (t->parent != NULL)
   {
-    printf("parent not null\n");
+    //printf("parent not null\n");
     // we want to try to dereference the parent
     sema_down (&t->parent->zombie_sema);
   }
@@ -297,7 +297,7 @@ free_resources(struct thread *t)
 void
 process_exit (void)
 {
-  printf("\nin process exit\n");
+  //printf("\nin process exit\n");
   struct thread *cur_thread = thread_current ();
   uint32_t *pd;
 
@@ -311,19 +311,19 @@ process_exit (void)
   {
     // get the current thread's relevant child struct
     struct child *cur = get_child (cur_thread->tid, parent);
-    printf ("got child %d\n", cur->child_tid);
+    //printf ("got child %d\n", cur->child_tid);
     if (cur != NULL)
     {
       cur->child_exit_code = cur_thread->exit_code;
-       printf ("set the childs exit code\n");
+       //printf ("set the childs exit code\n");
       /* wake up the current thread's parent if it is waiting
          on the exit code */
          sema_down (&parent->exit_sema);
-         printf ("parent is waiting on: %d\n", cur_thread->parent->waited_on_child);
+         //printf ("parent is waiting on: %d\n", cur_thread->parent->waited_on_child);
          
       if (cur_thread->parent->waited_on_child == cur_thread->tid)
       {
-        printf ("found waited on child:\n");
+        //printf ("found waited on child:\n");
         cur->waited_on = 0;
         sema_up (&cur_thread->parent->reap_sema);
       }    
@@ -712,7 +712,7 @@ setup_stack (char *argv[], int argc, void **esp)
             if (count > PGSIZE)
               return false;
             // = &argv[i]
-            printf("%x\n", (int)esp_cpy);
+            //printf("%x\n", (int)esp_cpy);
             // prepare args by adding to list
             esp_cpy -= strlen (argv[i]) + 1;
             arg_addrs[i] = (int) esp_cpy;
@@ -737,8 +737,8 @@ setup_stack (char *argv[], int argc, void **esp)
         
         //addresses
         int k;
-        for (k = 0; k < argc; k++)
-        //for (k = argc - 1; k >= 0; k--)
+        //for (k = 0; k < argc; k++)
+        for (k = argc - 1; k >= 0; k--)
         {
           //printf("%x\n", (int)arg_addrs[k]);
           esp_cpy -= sizeof (char*);

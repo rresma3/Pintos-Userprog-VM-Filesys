@@ -4,6 +4,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 // Brian Driving
+#include <string.h>
 #include "devices/shutdown.h"
 #include "threads/vaddr.h"
 #include "userprog/process.h"
@@ -14,10 +15,11 @@
 #include "devices/input.h"
 #include "threads/malloc.h"
 
+
 static void syscall_handler (struct intr_frame *);
 
 /* Miles Driving */
-static bool valid_ptr (void *ptr);
+static bool valid_ptr (int *ptr);
 /* End Driving */
 
 /* Brian Driving */
@@ -37,7 +39,7 @@ static void close_handler (struct intr_frame *f);
 /* End Driving */
 
 /* Ryan Driving */
-static void error_exit (struct intr_frame *f);
+static void error_exit (int exit_status);
 /* End Driving */
 
 
@@ -52,7 +54,7 @@ static void
 syscall_handler (struct intr_frame *f) 
 {
 
-  printf ("system call!\n");
+  //printf ("system call!\n");
 
 
   void * my_esp = f->esp;
@@ -145,8 +147,8 @@ error_exit (int exit_status)
   cur->exit_code = exit_status;
 
   // tokenize the first part of the name
-  char *save_ptr
-  char *name = strtok_r(cur->name, " ", &save_ptr);
+  char *save_ptr;
+  char *name = strtok_r (cur->name, " ", &save_ptr);
   printf ("%s: exit(%d)\n", name, exit_status);
 
   thread_exit ();
@@ -159,7 +161,7 @@ error_exit (int exit_status)
 static void
 exit_handler (struct intr_frame *f)
 {
-  printf("in exit handler\n");
+  //printf("in exit handler\n");
   // grab the esp off intr_frame
   int *my_esp = f->esp;
 
@@ -170,7 +172,7 @@ exit_handler (struct intr_frame *f)
   }
   else
   {
-    printf ("invalid pointer");
+    //printf ("invalid pointer");
     error_exit (-1);
   }
 }
@@ -185,7 +187,7 @@ exit_handler (struct intr_frame *f)
 static void 
 wait_handler (struct intr_frame *f)
 {
-  printf("in wait handler\n");
+  //printf("in wait handler\n");
   int *my_esp = f->esp;
   // check valid pointer
   if (valid_ptr (my_esp + 1))
@@ -194,7 +196,7 @@ wait_handler (struct intr_frame *f)
   }
   else
   {
-    printf ("invalid pointer");
+    //printf ("invalid pointer");
     f->eax = -1;
     error_exit (-1);
   }
@@ -206,10 +208,10 @@ wait_handler (struct intr_frame *f)
 static void 
 create_handler (struct intr_frame *f)
 {
-  printf("in create handler\n");
+  //printf("in create handler\n");
   int *my_esp = (int*) f->esp;
   if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2)
-      && valid_ptr (*(my_esp + 1))
+      && valid_ptr ((int*) *(my_esp + 1)))
   {
      
     //both args are valid.
@@ -226,7 +228,7 @@ create_handler (struct intr_frame *f)
 static void 
 filesize_handler (struct intr_frame *f)
 {
-  printf("in filesize handler\n");
+  //printf("in filesize handler\n");
   int *my_esp = (int*) f->esp;
   if (valid_ptr (my_esp + 1))
   {
@@ -255,12 +257,12 @@ filesize_handler (struct intr_frame *f)
 static void 
 read_handler (struct intr_frame *f)
 {
-  printf("in read handler\n");
+  //printf("in read handler\n");
   int *my_esp = (int*) f->esp;
   // Check second to last arg's content and then last arg
    // Check second to last arg's content and then last arg
   if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2)
-      && valid_ptr (my_esp + 3) && valid_ptr (*(my_esp + 2)))
+      && valid_ptr (my_esp + 3) && valid_ptr ((int*) *(my_esp + 2)))
   {
     int fd = *(my_esp + 1);
     char **buf_ptr = (char**)(my_esp + 2);
@@ -309,29 +311,30 @@ read_handler (struct intr_frame *f)
 static void 
 write_handler (struct intr_frame *f)
 { // TODO: get second arg from input (x)
-  printf("In write handler\n");
+  //printf("In write handler\n");
   int *my_esp = (int*) f->esp;
 
   // Check second to last arg's content and then last arg
   if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2)
-      && valid_ptr (my_esp + 3) && valid_ptr (*(my_esp + 2)))
+      && valid_ptr (my_esp + 3) && valid_ptr ((int*) *(my_esp + 2)))
   {
-    hex_dump(my_esp, my_esp, (int)(PHYS_BASE - (int)my_esp), true);
+    //hex_dump(my_esp, my_esp, (int)(PHYS_BASE - (int)my_esp), true);
     int fd = *(my_esp + 1);
     char **buf_ptr = (char**)(my_esp + 2);
     int size = *(my_esp + 3);
+    //printf ("\nsize: %d\n", size);
     char *buf = *buf_ptr;
     
-    printf ("\nbuf: %s\n", (buf));
-    int i;
-    for (i = 0; i< size; i++) 
-    {
-      printf ("\nbuffer elem %d is %s\n", i, &buf[i]);
-    }
+    //printf ("\nbuf: %s\n", (buf));
+    // int i;
+    // for (i = size; i >= 0; i--) 
+    // {
+    //   printf ("\nbuffer elem %d is %s\n", i, &buf[i]);
+    // }
 
     if (fd == 1)
     { // Write to console
-      printf ("write to console\n");
+      //printf ("write to console\n");
       //ASSERT(1 == 23);
 
       putbuf (buf, size);
@@ -371,7 +374,7 @@ write_handler (struct intr_frame *f)
 static void 
 seek_handler (struct intr_frame *f)
 {
-  printf("in seek handler\n");
+  //printf("in seek handler\n");
   int *my_esp = (int*) f->esp;
   if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2))
   {
@@ -403,7 +406,7 @@ seek_handler (struct intr_frame *f)
 static void 
 tell_handler (struct intr_frame *f)
 {
-  printf("in tell handler\n");
+  //printf("in tell handler\n");
   int *my_esp = (int*) f->esp;
   if (valid_ptr ((void*) (my_esp + 1)))
   {
@@ -434,7 +437,7 @@ tell_handler (struct intr_frame *f)
 static void 
 close_handler (struct intr_frame *f) 
 {
-  printf("in close handler\n");
+  //printf("in close handler\n");
   int *my_esp = (int*) f->esp;
   if (valid_ptr ((void*) (my_esp + 1)))
   {
@@ -474,7 +477,7 @@ close_handler (struct intr_frame *f)
 static void 
 exec_handler (struct intr_frame *f)
 {
-  printf("in exec handler\n");
+  //printf("in exec handler\n");
   int *my_esp = (int*) f->esp;
   if (valid_ptr ((void*) (my_esp + 1)) && valid_ptr ((void*) (*(my_esp + 1))))
   {
@@ -490,7 +493,7 @@ exec_handler (struct intr_frame *f)
 static void 
 remove_handler (struct intr_frame *f)
 {
-  printf("in remove handler\n");
+  //printf("in remove handler\n");
   int *my_esp = f->esp;
   if (valid_ptr ((void*) (my_esp + 1)) && valid_ptr ((void*) (*(my_esp + 1))))
   {
@@ -504,19 +507,19 @@ remove_handler (struct intr_frame *f)
 static void 
 open_handler (struct intr_frame *f)
 {
-  printf("in open handler\n");
+  //printf("in open handler\n");
   int *my_esp = f->esp;
   if (valid_ptr ((void*) (my_esp + 1)) && valid_ptr ((void*) *(my_esp + 1)))
   {
-    printf("pointers valid\n");
+    //printf("pointers valid\n");
     lock_acquire (&file_sys_lock);
     char *f_name = (char*) (*(my_esp + 1));
-    printf("openeing file: %s\n", f_name);
+    //printf("openeing file: %s\n", f_name);
     struct file *cur_file = filesys_open (f_name);
     lock_release (&file_sys_lock);
     if (cur_file == NULL)
     {
-      printf("file null\n");
+      //printf("file null\n");
       f->eax = -1;
     }
     else
