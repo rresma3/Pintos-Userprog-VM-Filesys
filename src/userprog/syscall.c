@@ -57,17 +57,17 @@ syscall_handler (struct intr_frame *f)
   //printf ("system call!\n");
 
 
-  void * my_esp = f->esp;
+  int* my_esp = f->esp;
   
   if (!valid_ptr (my_esp))
   {
     // BAD!
-    // TODO: exit();
+    error_exit(-1);
   }
 
   int syscall_num = *((int*) my_esp);
 
-  // B-Dawg drivin'
+  // B-Dawg drivin'.
   switch (syscall_num)
   {
     case SYS_HALT :
