@@ -219,6 +219,10 @@ create_handler (struct intr_frame *f)
     lock_release (&file_sys_lock);
  
   }
+  else
+  {
+    error_exit (-1);
+  }
 }
 
 
@@ -248,6 +252,10 @@ filesize_handler (struct intr_frame *f)
         }
       }
     lock_release (&file_sys_lock);
+  }
+  else
+  {
+    error_exit (-1);
   }
 }
 
@@ -301,6 +309,10 @@ read_handler (struct intr_frame *f)
       }
       lock_release (&file_sys_lock);
     }
+  }
+  else
+  {
+    error_exit (-1);
   }
 }
 
@@ -365,6 +377,10 @@ write_handler (struct intr_frame *f)
         lock_release (&file_sys_lock);
     }
   }
+  else
+  {
+    error_exit (-1);
+  }
 }
 
 
@@ -397,6 +413,10 @@ seek_handler (struct intr_frame *f)
       }
     lock_release (&file_sys_lock);
   }
+  else
+  {
+    error_exit (-1);
+  }
 }
 
 
@@ -426,6 +446,10 @@ tell_handler (struct intr_frame *f)
         }
       }
     lock_release (&file_sys_lock);
+  }
+  else
+  {
+    error_exit (-1);
   }
 }
 
@@ -465,7 +489,7 @@ close_handler (struct intr_frame *f)
   }
   else
   {
-    // TODO: exit()
+    error_exit (-1);
   }
 }
 
@@ -483,8 +507,10 @@ exec_handler (struct intr_frame *f)
     tid_t new_tid = process_execute (cmd_line);
     f->eax = new_tid;
   }
-
-  
+  else
+  {
+    error_exit (-1);
+  }
 }
 
 static void 
@@ -498,7 +524,10 @@ remove_handler (struct intr_frame *f)
     f->eax = filesys_remove ((char*) *(my_esp + 1));
     lock_release (&file_sys_lock);
   }
-  
+  else
+  {
+    error_exit (-1);
+  }
 }
 
 static void 
@@ -530,5 +559,9 @@ open_handler (struct intr_frame *f)
       f->eax = f_elem->fd;
     }
     
+  }
+  else
+  {
+    error_exit (-1);
   }
 }
