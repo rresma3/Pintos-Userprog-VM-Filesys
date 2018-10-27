@@ -55,7 +55,7 @@ process_execute (const char *file_name)
 
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   struct thread *cur = thread_current ();
-  printf ("%s is the current thread executing\n", cur->name);
+  // printf ("%s is the current thread executing\n", cur->name);
   if (tid == TID_ERROR)
   {
     palloc_free_page (fn_copy);
@@ -129,10 +129,12 @@ start_process (void *file_name_)
   
   /* If load failed, quit. */
   palloc_free_page (file_name);
+  
   //get the current thread which is the child
   struct thread *child = thread_current ();
   if (!success)
   {
+    child->exit_code = -1;
     //load failed, notify the parent and sema up
     child->parent->load_success = false;
     sema_up (&child->parent->child_sema);
@@ -305,7 +307,7 @@ process_exit (void)
 {
   //printf("\nin process exit\n");
   struct thread *cur_thread = thread_current ();
-  printf ("%s is currently exiting!!!! \n", cur_thread->name);
+  //printf ("%s is currently exiting!!!! \n", cur_thread->name);
   uint32_t *pd;
 
   // save reference to parent
@@ -469,11 +471,13 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
   bool success = false;
   int i;
 
+
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
+
   if (t->pagedir == NULL)
   {
-      goto done;
+    goto done;
   } 
 
   process_activate ();
@@ -497,6 +501,7 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
     {
       goto done; 
     }
+
 
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
@@ -569,6 +574,7 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
           break;
         }
     }
+
 
   /* Set up stack. */
   if (!setup_stack (argv, argc, esp))

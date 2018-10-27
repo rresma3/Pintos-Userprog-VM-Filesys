@@ -501,7 +501,7 @@ init_thread (struct thread *t, const char *name, int priority)
   sema_init (&t->child_sema, 0);
 
   /* Ryan Driving */
-  t->exit_code = 0;
+  t->exit_code = -1;
   t->fd_count = 2;
   list_init (&t->child_list);
 

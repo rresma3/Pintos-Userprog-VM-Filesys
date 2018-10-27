@@ -53,7 +53,7 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f) 
 {
-
+  
   //printf ("system call!\n");
 
 
@@ -65,7 +65,8 @@ syscall_handler (struct intr_frame *f)
     error_exit(-1);
   }
 
-  int syscall_num = *((int*) my_esp);
+
+  int syscall_num = *(my_esp);
 
   // B-Dawg drivin'.
   switch (syscall_num)
@@ -109,6 +110,9 @@ syscall_handler (struct intr_frame *f)
     case SYS_CLOSE :
       close_handler (f);
       break;
+    default :
+      error_exit (-1);
+      break;
   }
 
   //thread_exit ();
@@ -120,11 +124,12 @@ bool
 valid_ptr (int *ptr)
 {
   struct thread *cur = thread_current ();
-  printf ("%s is the thread checking valid ptr\n", cur->name);
-  if(ptr == NULL || is_kernel_vaddr(ptr) || *ptr == NULL ||
-    pagedir_get_page(cur->pagedir, ptr) == NULL)
+
+  if (ptr == NULL)
+    return false;
+
+  if (is_kernel_vaddr(ptr) || pagedir_get_page(cur->pagedir, ptr) == NULL)
     {
-      printf ("invalid pointer!!!\n");
       return false;
     }
     return true;
@@ -146,7 +151,8 @@ error_exit (int exit_status)
 {
   struct thread *cur = thread_current ();
   cur->exit_code = exit_status;
-  printf ("my exit status is: %d!!!\n", cur->exit_code);
+
+  
   
 
   thread_exit ();
@@ -247,7 +253,7 @@ filesize_handler (struct intr_frame *f)
          iterator = list_next (iterator))
       {
         cur_file = list_entry (iterator, struct file_elem, elem);
-        if (cur_file != NULL && cur_file->fd == fd && cur_file->file != NULL)
+        if (cur_file != NULL && cur_file->fd == fd)
         {
           f->eax = file_length (cur_file->file); // Set return value to size
         }
@@ -263,19 +269,17 @@ filesize_handler (struct intr_frame *f)
 static void 
 read_handler (struct intr_frame *f)
 {
-  printf("%s is in read handler\n", thread_current ()->name);
+  //printf("in read handler\n");
   int *my_esp = (int*) f->esp;
   // Check second to last arg's content and then last arg
    // Check second to last arg's content and then last arg
   if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2)
-      && valid_ptr (my_esp + 3) && valid_ptr (*((int*)(my_esp + 2))))
+      && valid_ptr (my_esp + 3) && valid_ptr ((int*) *(my_esp + 2)))
   {
     int fd = *(my_esp + 1);
     char **buf_ptr = (char**)(my_esp + 2);
     int size = *(my_esp + 3);
     char *buf = *buf_ptr;
-
-    printf ("\n the fd is %d\n", fd);
 
     if (fd == 0)
     { 
@@ -287,32 +291,29 @@ read_handler (struct intr_frame *f)
       }
       f->eax = size;
     }
-    else if (fd > 1)
+    else
     {
       struct list_elem *iterator;
       struct file_elem *cur_file;
       lock_acquire (&file_sys_lock);
       struct list *cur_file_list = &thread_current ()->file_list;
 
-      if (cur_file_list != NULL)
-      {
-        for (iterator = list_begin(cur_file_list);
+
+      for (iterator = list_begin(cur_file_list);
            iterator != list_end (cur_file_list);
            iterator = list_next (iterator))
+      {
+        cur_file = list_entry (iterator, struct file_elem, elem);
+        if (cur_file != NULL && cur_file->fd == fd)
         {
-          cur_file = list_entry (iterator, struct file_elem, elem);
-          if (cur_file != NULL && cur_file->fd == fd && cur_file->file != NULL)
-          {
           
           f->eax = file_read (cur_file->file, (void*) buf, size);
-          }
-          else
-          {
-            f->eax = -1;
-          }
+        }
+        else
+        {
+          f->eax = -1;
         }
       }
-
       lock_release (&file_sys_lock);
     }
   }
@@ -331,7 +332,7 @@ write_handler (struct intr_frame *f)
 
   // Check second to last arg's content and then last arg
   if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2)
-      && valid_ptr (my_esp + 3) && valid_ptr ((int*) *(my_esp + 2)))
+      && valid_ptr (my_esp + 3) && valid_ptr ((int *)(*(my_esp + 2))))
   {
     //hex_dump(my_esp, my_esp, (int)(PHYS_BASE - (int)my_esp), true);
     int fd = *(my_esp + 1);
@@ -351,9 +352,9 @@ write_handler (struct intr_frame *f)
     { // Write to console
       //printf ("write to console\n");
       //ASSERT(1 == 23);
-
+      
       putbuf (buf, size);
-      printf ("\n\n size is %d\n\n", size);
+
       f->eax = size;
     }
     else
@@ -370,7 +371,7 @@ write_handler (struct intr_frame *f)
            iterator = list_next (iterator))
         {
           cur_file = list_entry (iterator, struct file_elem, elem);
-          if (cur_file != NULL && cur_file->fd == fd && cur_file->file != NULL)
+          if (cur_file != NULL && cur_file->fd == fd)
           {
             
             f->eax = file_write (cur_file->file, (void*) (my_esp + 6), *(my_esp + 7));
@@ -411,7 +412,7 @@ seek_handler (struct intr_frame *f)
          iterator = list_next (iterator))
       {
         cur_file = list_entry (iterator, struct file_elem, elem);
-        if (cur_file != NULL && cur_file->fd == fd && cur_file->file != NULL)
+        if (cur_file != NULL && cur_file->fd == fd)
         {
           //TODO: verify this bit stuff is right
           file_seek (cur_file->file, position);
@@ -446,7 +447,7 @@ tell_handler (struct intr_frame *f)
          iterator = list_next (iterator))
       {
         cur_file = list_entry (iterator, struct file_elem, elem);
-        if (cur_file != NULL && cur_file->fd == fd && cur_file->file != NULL)
+        if (cur_file != NULL && cur_file->fd == fd)
         {
           f->eax = file_tell (cur_file->file); // Set return value to pos
         }
@@ -482,7 +483,7 @@ close_handler (struct intr_frame *f)
          iterator = list_next (iterator))
       {
         cur_file = list_entry (iterator, struct file_elem, elem);
-        if (cur_file != NULL && cur_file->fd == fd && cur_file->file != NULL)
+        if (cur_file != NULL && cur_file->fd == fd)
         {
           list_remove (iterator); // Remove file from list
           file_close (cur_file->file);  // Close file.
@@ -561,7 +562,7 @@ open_handler (struct intr_frame *f)
       struct thread *cur = thread_current ();
       f_elem->fd = cur->fd_count;
       cur->fd_count++;
-      list_push_back (&cur->file_list, &f_elem->elem); 
+      list_push_back (&cur->file_list, &f_elem->elem);
       f->eax = f_elem->fd;
     }
     
