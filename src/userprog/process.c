@@ -26,14 +26,14 @@ static bool load (char *argv[], int argc, void (**eip) (void), void **esp);
 
 
 /* Sam Driving */
-/*struct to keep track of the arg vector*/
+/* struct to keep track of the arg vector */
 struct args
 {
   char *argument;
   void *addr;
   struct list_elem elem;
 };
-/* End Driving */
+/* Sam end Driving */
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -60,14 +60,16 @@ process_execute (const char *file_name)
     palloc_free_page (fn_copy);
   }
 
-  /*wait for the child to finish loading*/
+  /* Miles driving */
+  /* wait for the child to finish loading */
   sema_down (&cur->child_sema);
   if (!cur->load_success)
   {
-    /*child loaded improperly*/
+    /* child loaded improperly */
     return -1;
   }
   return tid;
+  /* Miles end driving */
 }
 
 /* A thread function that loads a user process and starts it
@@ -97,17 +99,17 @@ start_process (void *file_name_)
 
   char *token, *save_ptr;
   int count = 0;
-  // go through the command line and start adding arguments into our list
+  /* go through the command line and start adding arguments into our list */
   for (token = strtok_r (cmd_line, " ", &save_ptr); token != NULL;
       token = strtok_r (NULL, " ", &save_ptr))
   {
     struct args *cur = (struct args *) malloc (sizeof (struct args));
     cur->argument = token;
     count += strlen (token) + 1;
-    // prepare args by adding to list
+    /* prepare args by adding to list */
     list_push_back (&args_list, &cur->elem);
   }
-  /*args are in a list now, convert to the new string*/
+  /* args are in a list now, convert to the new string */
   int i;
   int argc = list_size (&args_list);
   char *arg_vector[argc];
@@ -119,26 +121,26 @@ start_process (void *file_name_)
     char *argument = cur->argument;
     arg_vector[i] = argument;
   }
-  /*now arg_vector contains the argument vector */
-  /*load the exe and get the status*/
-  success = load ( arg_vector, argc, &if_.eip, &if_.esp);
+  /* now arg_vector contains the argument vector */
+  /* load the exe and get the status */
+  success = load (arg_vector, argc, &if_.eip, &if_.esp);
   
   /* If load failed, quit. */
   palloc_free_page (file_name);
   
-  /*get the current thread which is the child*/
+  /* get the current thread which is the child */
   struct thread *child = thread_current ();
   if (!success)
   {
     child->exit_code = -1;
-    //load failed, notify the parent and sema up
+    /* load failed, notify the parent and sema up */
     child->parent->load_success = false;
     sema_up (&child->parent->child_sema);
     thread_exit ();
   }
   else
   {
-    //load succeeded, notify parent and sema up
+    /* load succeeded, notify parent and sema up */
     child->parent->load_success = true;
     sema_up (&child->parent->child_sema);
   }
@@ -169,27 +171,29 @@ process_wait (tid_t child_tid)
 {
   /* Ryan Driving */
   int ret_exit_code = -1;
-  // save reference to current thread
+  /* save reference to current thread */
   struct thread *cur_thread = thread_current ();
-  // attempt to find the child in child_list via pid search
+  /* attempt to find the child in child_list via pid search */
   struct child *cur_child = get_child (child_tid, cur_thread);
-  // check if we found a matching child
+  /* check if we found a matching child */
   if (cur_child != NULL)
   {
-    // accessing element in our child list, MUST synchronize
+    /* accessing element in our child list, MUST synchronize */
     lock_acquire (&cur_thread->child_list_lock);
-    // check if the current child is being waited on already, if so, return
+    /* check if the current child is being waited on already, if so, return */
     if (cur_child->waited_on == 0)
     {
-      // our child is not being waited on, so we proceed
+      /* our child is not being waited on, so we proceed */
       cur_thread->waited_on_child = cur_child->child_tid;
       cur_child->waited_on = 1;
+
       sema_up (&cur_thread->exit_sema);
-      // release our child's lock before we attempt to reap
+      /* release our child's lock before we attempt to reap */
       lock_release (&cur_thread->child_list_lock);
-      // try to reap, sema_up() will be called in exit handler
+      /* try to reap, sema_up() will be called in exit handler */
       sema_down (&cur_thread->reap_sema);
-      // grab the child's exit code
+
+      /* grab the child's exit code */
       lock_acquire (&cur_thread->child_list_lock);
       list_remove (&cur_child->child_elem);
       ret_exit_code = cur_child->child_exit_code;
@@ -197,31 +201,33 @@ process_wait (tid_t child_tid)
     } 
     else
     {
-      // child is being waited on already
+      /* child is being waited on already */
       lock_release (&cur_thread->child_list_lock);
     }
   }
-  // garbage collect
+
+  /* garbage collect */
   cur_thread = NULL;
   cur_child = NULL;
   return ret_exit_code;
-  /* End driving */
+  /* End Ryan driving */
 }
 
 /* Ryan Driving */
-// parses the child list of a thread to find a child
+/* parses the child list of a thread to find a child */
 struct child*
-get_child(tid_t tid, struct thread *cur_thread)
+get_child (tid_t tid, struct thread *cur_thread)
 {
   struct list_elem * e = NULL;
-  for (e=list_begin(&cur_thread->child_list);
-       e!=list_end (&cur_thread->child_list); e=list_next (e))
+  for (e = list_begin (&cur_thread->child_list);
+       e != list_end (&cur_thread->child_list); e = list_next (e))
   {
-    // save reference to our current child
+    /* save reference to our current child */
     struct child *result = list_entry(e, struct child, child_elem);
     ASSERT (result != NULL);
-    // check if the tid's match, if so we have found our child
-    if(result->child_tid == tid)
+
+    /* check if the tid's match, if so we have found our child */
+    if (result->child_tid == tid)
     {
       ASSERT (&cur_thread->child_list_lock != NULL);
       return result;
@@ -229,16 +235,14 @@ get_child(tid_t tid, struct thread *cur_thread)
   }
   return NULL;
 }
-/* End Driving */
 
 void 
-free_resources(struct thread *t)
+free_resources (struct thread *t)
 {
-  // if the current thread's parent isn't dead, we must call sema
+  /* if the current thread's parent isn't dead, we must call sema */
   if (t->parent != NULL)
   {
-    //printf("parent not null\n");
-    // we want to try to dereference the parent
+    /* we want to try to dereference the parent */
     sema_down (&t->parent->zombie_sema);
   }
   
@@ -246,7 +250,7 @@ free_resources(struct thread *t)
   struct file_elem *cur_file = NULL;
   struct child *cur_child = NULL;
 
-  // synchronize and free the memory we don't need
+  /* synchronize and free the memory we don't need */
   lock_acquire (&file_sys_lock);
   while (!list_empty (&t->file_list))
   {
@@ -255,6 +259,7 @@ free_resources(struct thread *t)
     file_close (cur_file->file);
   }    
   lock_release (&file_sys_lock);
+
   lock_acquire (&t->child_list_lock);
   while (!list_empty (&t->child_list))
   {
@@ -263,9 +268,11 @@ free_resources(struct thread *t)
     free (cur_child);
   }
   lock_release (&t->child_list_lock);
-  // let zombie children know they can exit
+
+  /* let zombie children know they can exit */
   sema_up (&t->zombie_sema);
   t->parent = NULL;
+  /* End Ryan driving */
 }
 
 /* Free the current process's resources. */
@@ -275,15 +282,17 @@ process_exit (void)
   struct thread *cur_thread = thread_current ();
   uint32_t *pd;
   bool be_reaped = false;
-  // save reference to parent
+
+  /* Brian driving */
+  /* save reference to parent */
   struct thread *parent = cur_thread->parent;
 
   /* must check if the current thread to be exited is a child
      of another thread, if so, we must update the child struct*/
-  // lock_acquire (&parent->child_list_lock);
-  if (parent != NULL && !list_empty(&parent->child_list))
+  /* lock_acquire (&parent->child_list_lock); */
+  if (parent != NULL && !list_empty (&parent->child_list))
   {
-    // get the current thread's relevant child struct
+    /* get the current thread's relevant child struct */
     struct child *cur = get_child (cur_thread->tid, parent);
     if (cur != NULL)
     {
@@ -298,17 +307,20 @@ process_exit (void)
       }    
     }
   }
-  // garbage collection
-  // tokenize the first part of the name
+  /* garbage collection */
+  /* tokenize the first part of the name */
   char *save_ptr;
   char *name = strtok_r (cur_thread->name, " ", &save_ptr);
   printf ("%s: exit(%d)\n", name, cur_thread->exit_code);
   if (be_reaped)
     sema_up (&cur_thread->parent->reap_sema);
-  // close the executable file
+
+  /* close the executable file */
   if (cur_thread->executable != NULL)
     file_close (cur_thread->executable);
   free_resources (cur_thread);
+
+  /* End Brian driving */
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -438,9 +450,12 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
 
   process_activate ();
 
+  /* Brian driving */
   /* Open executable file. */
   lock_acquire (&file_sys_lock);
-  /*open the file from the file sys*/
+  /* Brian end driving */
+
+  /* open the file from the file sys */
   file = filesys_open (argv[0]);
   if (file == NULL) 
     {
@@ -539,15 +554,12 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
     goto done;
   }
     
-  
-
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
-
   success = true;
   
   /* Ryan Driving */
-  // Deny all attempted writes to executables
+  /* Deny all attempted writes to executables */
   file_deny_write (file);
   t->executable = file;
 
@@ -555,6 +567,7 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
   /* We arrive here whether the load is successful or not. */
   lock_release (&file_sys_lock);
   return success;
+  /* Ryan end driving */
 }
 
 /* load() helpers. */
@@ -679,32 +692,34 @@ setup_stack (char *argv[], int argc, void **esp)
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
       {
+        /* Sam driving */
         *esp = PHYS_BASE;
         char *esp_cpy = PHYS_BASE;
-        // keep arguments in a list
+        /* keep arguments in a list */
         int64_t count = 0;
-        // go through the command line and start adding arguments into our list
+        /* go through the command line and start adding 
+          arguments into our list */
         int arg_addrs[argc];
         int i;
         for (i = 0; i < argc; i++)
         {
-            // count number of bytes needed
+            /* count number of bytes needed */
             count += strlen (argv[i]) + 1;
-            // check for page size
+            /* check for page size */
             if (count > PGSIZE)
               return false;
       
-            //add the arg addresses to an array
+            /* add the arg addresses to an array */
             esp_cpy -= strlen (argv[i]) + 1;
             arg_addrs[i] = (int) esp_cpy;
             memcpy (esp_cpy, (void *) argv[i], strlen (argv[i]) + 1);
         }
 
         int zero = 0;
-        //align on 4 byte word
-        int word_align = ((unsigned int)esp_cpy % 4);
+        /* align on 4 byte word */
+        int word_align = ((unsigned int) esp_cpy % 4);
 
-        /*get the size of the args*/
+        /* get the size of the args */
         int j;
         for (j = 0; j < word_align; j++)
         {
@@ -712,35 +727,36 @@ setup_stack (char *argv[], int argc, void **esp)
           count++;
         }
 
-        // check size again
+        /* check size again */
         if (count > PGSIZE)
           return false;
 
-        // sentinel 
+        /* sentinel */
         esp_cpy -= sizeof (char *);
         
-        //addresses
+        /* addresses */
         int k;
         for (k = argc - 1; k >= 0; k--)
         {
           esp_cpy -= sizeof (char*);
-          memcpy(esp_cpy, &arg_addrs[k], sizeof (char*));
+          memcpy (esp_cpy, &arg_addrs[k], sizeof (char*));
         }
 
-        // argument
+        /* argument */
         void *copy_of_esp = esp_cpy;
         esp_cpy -= sizeof (char **);
         memcpy (esp_cpy, &copy_of_esp, sizeof (char *));
 
-        // argc
+        /* argc */
         esp_cpy -= sizeof (int);
-        // using list size since we pushed our arguments into a list
+        /* using list size since we pushed our arguments into a list */
         memcpy (esp_cpy, &argc, sizeof (int));
 
-        // return address
+        /* return address */
         esp_cpy -= sizeof (void *);
         memcpy (esp_cpy, &zero, sizeof (void *));
         *esp = esp_cpy;
+        /* End Sam driving */
       }
       else
         palloc_free_page (kpage);
