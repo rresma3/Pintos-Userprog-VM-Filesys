@@ -17,27 +17,27 @@
 static void syscall_handler (struct intr_frame *);
 
 /* Miles Driving */
-static bool ptr_is_valid (void *ptr);
+static bool valid_ptr (void *ptr);
 /* End Driving */
 
 /* Brian Driving */
-static void syscall_halt_handler (void);
-static void syscall_exit_handler (struct intr_frame *f);
-static void syscall_exec_handler (struct intr_frame *f);
-static void syscall_wait_handler (struct intr_frame *f);
-static void syscall_create_handler (struct intr_frame *f);
-static void syscall_remove_handler (struct intr_frame *f);
-static void syscall_open_handler (struct intr_frame *f);
-static void syscall_filesize_handler (struct intr_frame *f);
-static void syscall_read_handler (struct intr_frame *f);
-static void syscall_write_handler (struct intr_frame *f);
-static void syscall_seek_handler (struct intr_frame *f);
-static void syscall_tell_handler (struct intr_frame *f);
-static void syscall_close_handler (struct intr_frame *f);
+static void halt_handler (void);
+static void exit_handler (struct intr_frame *f);
+static void exec_handler (struct intr_frame *f);
+static void wait_handler (struct intr_frame *f);
+static void create_handler (struct intr_frame *f);
+static void remove_handler (struct intr_frame *f);
+static void open_handler (struct intr_frame *f);
+static void filesize_handler (struct intr_frame *f);
+static void read_handler (struct intr_frame *f);
+static void write_handler (struct intr_frame *f);
+static void seek_handler (struct intr_frame *f);
+static void tell_handler (struct intr_frame *f);
+static void close_handler (struct intr_frame *f);
 /* End Driving */
 
 /* Ryan Driving */
-static void syscall_err_exit (struct intr_frame *f);
+static void error_exit (struct intr_frame *f);
 /* End Driving */
 
 
@@ -57,7 +57,7 @@ syscall_handler (struct intr_frame *f)
 
   void * my_esp = f->esp;
   
-  if (!ptr_is_valid (my_esp))
+  if (!valid_ptr (my_esp))
   {
     // BAD!
     // TODO: exit();
@@ -69,73 +69,69 @@ syscall_handler (struct intr_frame *f)
   switch (syscall_num)
   {
     case SYS_HALT :
-      syscall_halt_handler ();
+      halt_handler ();
       break;
     case SYS_EXIT :
-      syscall_exit_handler (f);
+      exit_handler (f);
       break;
     case SYS_EXEC :
-      syscall_exec_handler (f);
+      exec_handler (f);
       break;
     case SYS_WAIT :
-      syscall_wait_handler (f);
+      wait_handler (f);
       break;
     case SYS_CREATE :
-      syscall_create_handler (f);
+      create_handler (f);
       break;
     case SYS_REMOVE :
-      syscall_remove_handler (f);
+      remove_handler (f);
       break;
     case SYS_OPEN :
-      syscall_open_handler (f);
+      open_handler (f);
       break;
     case SYS_FILESIZE :
-      syscall_filesize_handler (f);
+      filesize_handler (f);
       break;
     case SYS_READ :
-      syscall_read_handler (f);
+      read_handler (f);
       break;
     case SYS_WRITE :
-      syscall_write_handler (f);
+      write_handler (f);
       break;
     case SYS_SEEK :
-      syscall_seek_handler (f);
+      seek_handler (f);
       break;
     case SYS_TELL :
-      syscall_tell_handler (f);
+      tell_handler (f);
       break;
     case SYS_CLOSE :
-      syscall_close_handler (f);
+      close_handler (f);
       break;
   }
 
-  thread_exit ();
+  //thread_exit ();
 }
 
 // - Brian 🤠 
 // Returns true iff ptr is properly allocated in user memory
-static bool
-ptr_is_valid (void *ptr)
+bool
+valid_ptr (int *ptr)
 {
-  if (ptr != NULL && is_user_vaddr (ptr) 
-      && pagedir_get_page (thread_current ()->pagedir, ptr) != NULL)
-  {
-      return true;
-  }
-  else
-  {
-    printf ("\nbad pointer\n");
-    return false;
-  }
-    // TODO: what if partially in stack?
+  struct thread *cur = thread_current ();
+
+  if(ptr == NULL || is_kernel_vaddr(ptr) || 
+    pagedir_get_page(cur->pagedir, ptr) == NULL)
+    {
+      return false;
+    }
+    return true;
 }
 
 
 // Brian driving
 static void
-syscall_halt_handler ()
+halt_handler ()
 {
-  printf("in halt handler\n");
   shutdown_power_off ();
 }
 
@@ -143,9 +139,17 @@ syscall_halt_handler ()
 /* Widely used method to handle bad pointer or invalid 
    arg on stack, exits the calling process with status of */
 static void 
-syscall_err_exit (struct intr_frame *f)
+error_exit (int exit_status)
 {
-  
+  struct thread *cur = thread_current ();
+  cur->exit_code = exit_status;
+
+  // tokenize the first part of the name
+  char *save_ptr
+  char *name = strtok_r(cur->name, " ", &save_ptr);
+  printf ("%s: exit(%d)\n", name, exit_status);
+
+  thread_exit ();
 }
 /* End Driving */
 
@@ -153,22 +157,22 @@ syscall_err_exit (struct intr_frame *f)
 /* handles syscalls to exit, closing files,
    freeing memory, and modifying exit statuses */
 static void
-syscall_exit_handler (struct intr_frame *f)
+exit_handler (struct intr_frame *f)
 {
   printf("in exit handler\n");
   // grab the esp off intr_frame
   int *my_esp = f->esp;
-  if (ptr_is_valid ((void *) (my_esp + 1)))
+
+  if (valid_ptr (my_esp + 1))
   {
     thread_current ()->exit_code = *(my_esp + 1);
-    process_exit ();
+    thread_exit ();
   }
   else
   {
     printf ("invalid pointer");
-    syscall_err_exit (f);
+    error_exit (-1);
   }
-  thread_exit ();
 }
 /* End Driving */
 
@@ -179,12 +183,12 @@ syscall_exit_handler (struct intr_frame *f)
    but was terminated by the kernel (e.g. killed due to an exception), 
    wait(pid) must return -1. */
 static void 
-syscall_wait_handler (struct intr_frame *f)
+wait_handler (struct intr_frame *f)
 {
   printf("in wait handler\n");
   int *my_esp = f->esp;
   // check valid pointer
-  if (ptr_is_valid ((void *) (my_esp + 1)))
+  if (valid_ptr (my_esp + 1))
   {
     f->eax = process_wait (*(my_esp + 1));
   }
@@ -192,7 +196,7 @@ syscall_wait_handler (struct intr_frame *f)
   {
     printf ("invalid pointer");
     f->eax = -1;
-    syscall_err_exit (f);
+    error_exit (-1);
   }
 }
 /* End Driving */
@@ -200,12 +204,12 @@ syscall_wait_handler (struct intr_frame *f)
 
 /* handles a create file sys call */
 static void 
-syscall_create_handler (struct intr_frame *f)
+create_handler (struct intr_frame *f)
 {
   printf("in create handler\n");
   int *my_esp = (int*) f->esp;
-  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 2))
-      && ptr_is_valid ((void*) *(my_esp + 1)))
+  if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2)
+      && valid_ptr (*(my_esp + 1))
   {
      
     //both args are valid.
@@ -213,20 +217,18 @@ syscall_create_handler (struct intr_frame *f)
     char *f_name = (char*) *(my_esp + 1);
     unsigned int initial_size = (unsigned) *(my_esp + 2);
     f->eax = filesys_create (f_name, initial_size);
-
     lock_release (&file_sys_lock);
  
   }
-
 }
 
 
 static void 
-syscall_filesize_handler (struct intr_frame *f)
+filesize_handler (struct intr_frame *f)
 {
   printf("in filesize handler\n");
   int *my_esp = (int*) f->esp;
-  if (ptr_is_valid ((void*) (my_esp + 1)))
+  if (valid_ptr (my_esp + 1))
   {
     lock_acquire (&file_sys_lock);
 
@@ -251,14 +253,14 @@ syscall_filesize_handler (struct intr_frame *f)
 }
 
 static void 
-syscall_read_handler (struct intr_frame *f)
+read_handler (struct intr_frame *f)
 {
   printf("in read handler\n");
   int *my_esp = (int*) f->esp;
   // Check second to last arg's content and then last arg
    // Check second to last arg's content and then last arg
-  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 2))
-      && ptr_is_valid ((void*) (my_esp + 3)) && ptr_is_valid ((void*) (*(my_esp + 2))))
+  if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2)
+      && valid_ptr (my_esp + 3) && valid_ptr (*(my_esp + 2)))
   {
     int fd = *(my_esp + 1);
     char **buf_ptr = (char**)(my_esp + 2);
@@ -279,6 +281,7 @@ syscall_read_handler (struct intr_frame *f)
     {
       struct list_elem *iterator;
       struct file_elem *cur_file;
+      lock_acquire (&file_sys_lock);
       struct list *cur_file_list = &thread_current ()->file_list;
 
 
@@ -289,31 +292,29 @@ syscall_read_handler (struct intr_frame *f)
         cur_file = list_entry (iterator, struct file_elem, elem);
         if (cur_file != NULL && cur_file->fd == fd)
         {
-          lock_acquire (&file_sys_lock);
-
+          
           f->eax = file_read (cur_file->file, (void*) buf, size);
-
-          lock_release (&file_sys_lock);
         }
         else
         {
           f->eax = -1;
         }
       }
+      lock_release (&file_sys_lock);
     }
   }
 }
 
 
 static void 
-syscall_write_handler (struct intr_frame *f)
+write_handler (struct intr_frame *f)
 { // TODO: get second arg from input (x)
   printf("In write handler\n");
   int *my_esp = (int*) f->esp;
 
   // Check second to last arg's content and then last arg
-  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 2))
-      && ptr_is_valid ((void*) (my_esp + 3)) && ptr_is_valid ((void*) (*(my_esp + 2))))
+  if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2)
+      && valid_ptr (my_esp + 3) && valid_ptr (*(my_esp + 2)))
   {
     hex_dump(my_esp, my_esp, (int)(PHYS_BASE - (int)my_esp), true);
     int fd = *(my_esp + 1);
@@ -341,6 +342,7 @@ syscall_write_handler (struct intr_frame *f)
     {
       struct list_elem *iterator;
       struct file_elem *cur_file;
+      lock_acquire (&file_sys_lock);
       struct list *cur_file_list = &thread_current ()->file_list;
 
       
@@ -352,28 +354,26 @@ syscall_write_handler (struct intr_frame *f)
           cur_file = list_entry (iterator, struct file_elem, elem);
           if (cur_file != NULL && cur_file->fd == fd)
           {
-            lock_acquire (&file_sys_lock);
-
+            
             f->eax = file_write (cur_file->file, (void*) (my_esp + 6), *(my_esp + 7));
-
-            lock_release (&file_sys_lock);
           }
           else
           {
             f->eax = -1;
           }
         }
+        lock_release (&file_sys_lock);
     }
   }
 }
 
 
 static void 
-syscall_seek_handler (struct intr_frame *f)
+seek_handler (struct intr_frame *f)
 {
   printf("in seek handler\n");
   int *my_esp = (int*) f->esp;
-  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (my_esp + 2)))
+  if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2))
   {
     lock_acquire (&file_sys_lock);
 
@@ -401,11 +401,11 @@ syscall_seek_handler (struct intr_frame *f)
 
 
 static void 
-syscall_tell_handler (struct intr_frame *f)
+tell_handler (struct intr_frame *f)
 {
   printf("in tell handler\n");
   int *my_esp = (int*) f->esp;
-  if (ptr_is_valid ((void*) (my_esp + 1)))
+  if (valid_ptr ((void*) (my_esp + 1)))
   {
     lock_acquire (&file_sys_lock);
 
@@ -432,11 +432,11 @@ syscall_tell_handler (struct intr_frame *f)
 
 
 static void 
-syscall_close_handler (struct intr_frame *f) 
+close_handler (struct intr_frame *f) 
 {
   printf("in close handler\n");
   int *my_esp = (int*) f->esp;
-  if (ptr_is_valid ((void*) (my_esp + 1)))
+  if (valid_ptr ((void*) (my_esp + 1)))
   {
     lock_acquire (&file_sys_lock);
 
@@ -472,11 +472,11 @@ syscall_close_handler (struct intr_frame *f)
 
 
 static void 
-syscall_exec_handler (struct intr_frame *f)
+exec_handler (struct intr_frame *f)
 {
   printf("in exec handler\n");
   int *my_esp = (int*) f->esp;
-  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (*(my_esp + 1))))
+  if (valid_ptr ((void*) (my_esp + 1)) && valid_ptr ((void*) (*(my_esp + 1))))
   {
     //ptr is valid
     char* cmd_line = (char*) *(my_esp + 1);
@@ -488,11 +488,11 @@ syscall_exec_handler (struct intr_frame *f)
 }
 
 static void 
-syscall_remove_handler (struct intr_frame *f)
+remove_handler (struct intr_frame *f)
 {
   printf("in remove handler\n");
   int *my_esp = f->esp;
-  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) (*(my_esp + 1))))
+  if (valid_ptr ((void*) (my_esp + 1)) && valid_ptr ((void*) (*(my_esp + 1))))
   {
     lock_acquire (&file_sys_lock);
     f->eax = filesys_remove ((char*) *(my_esp + 1));
@@ -502,11 +502,11 @@ syscall_remove_handler (struct intr_frame *f)
 }
 
 static void 
-syscall_open_handler (struct intr_frame *f)
+open_handler (struct intr_frame *f)
 {
   printf("in open handler\n");
   int *my_esp = f->esp;
-  if (ptr_is_valid ((void*) (my_esp + 1)) && ptr_is_valid ((void*) *(my_esp + 1)))
+  if (valid_ptr ((void*) (my_esp + 1)) && valid_ptr ((void*) *(my_esp + 1)))
   {
     printf("pointers valid\n");
     lock_acquire (&file_sys_lock);
