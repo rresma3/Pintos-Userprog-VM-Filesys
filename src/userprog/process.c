@@ -272,9 +272,7 @@ free_resources(struct thread *t)
 
   // synchronize and free the memory we don't need
   lock_acquire (&file_sys_lock);
-    // close the executable file
-  if (t->executable != NULL)
-    file_close (t->executable);
+
   while (!list_empty (&t->file_list))
   {
     // printf ("\nfreeing files!!!!!\n");
@@ -309,7 +307,7 @@ process_exit (void)
   struct thread *cur_thread = thread_current ();
   //printf ("%s is currently exiting!!!! \n", cur_thread->name);
   uint32_t *pd;
-
+  bool be_reaped = false;
   // save reference to parent
   struct thread *parent = cur_thread->parent;
 
@@ -334,7 +332,7 @@ process_exit (void)
       {
         //printf ("found waited on child:\n");
         cur->waited_on = 0;
-        sema_up (&cur_thread->parent->reap_sema);
+        be_reaped = true;
       }    
     }
    
@@ -347,7 +345,11 @@ process_exit (void)
   char *save_ptr;
   char *name = strtok_r (cur_thread->name, " ", &save_ptr);
   printf ("%s: exit(%d)\n", name, cur_thread->exit_code);
-  
+  if (be_reaped)
+    sema_up (&cur_thread->parent->reap_sema);
+  // close the executable file
+  if (cur_thread->executable != NULL)
+    file_close (cur_thread->executable);
   // cur_thread = NULL;
   // parent = NULL;
 
@@ -588,6 +590,7 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
   
   /* Ryan Driving */
   // Deny all attempted writes to executables
+  // printf ("\n\ndenying write to my file\n\n");
   file_deny_write (file);
   t->executable = file;
 
