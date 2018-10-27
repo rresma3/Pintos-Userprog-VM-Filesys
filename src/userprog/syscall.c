@@ -150,10 +150,7 @@ error_exit (int exit_status)
 {
   struct thread *cur = thread_current ();
   cur->exit_code = exit_status;
-
   
-  
-
   thread_exit ();
 }
 /* End Driving */
@@ -210,7 +207,6 @@ wait_handler (struct intr_frame *f)
 static void 
 create_handler (struct intr_frame *f)
 {
-  //printf("in create handler\n");
   int *my_esp = (int*) f->esp;
   if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2)
       && valid_ptr ((int*) *(my_esp + 1)))
@@ -278,7 +274,6 @@ read_handler (struct intr_frame *f)
     char **buf_ptr = (char**)(my_esp + 2);
     int size = *(my_esp + 3);
     char *buf = *buf_ptr;
-
     if (fd == 0)
     { 
       uint8_t *buff_ptr = (uint8_t*) buf;
@@ -291,7 +286,6 @@ read_handler (struct intr_frame *f)
     }
     else
     {
-      //printf ("\n\nDEBUGGING\n\n");
       struct list_elem *iterator;
       struct file_elem *cur_file;
       lock_acquire (&file_sys_lock);
@@ -305,8 +299,8 @@ read_handler (struct intr_frame *f)
         cur_file = list_entry (iterator, struct file_elem, elem);
         if (cur_file != NULL && cur_file->fd == fd)
         {
-          
           f->eax = file_read (cur_file->file, (void*) buf, size);
+          break;
         }
         else
         {
@@ -325,8 +319,8 @@ read_handler (struct intr_frame *f)
 
 static void 
 write_handler (struct intr_frame *f)
-{ // TODO: get second arg from input (x)
-  //printf("In write handler\n");
+{ 
+
   int *my_esp = (int*) f->esp;
 
   // Check second to last arg's content and then last arg
@@ -335,17 +329,18 @@ write_handler (struct intr_frame *f)
   {
     //hex_dump(my_esp, my_esp, (int)(PHYS_BASE - (int)my_esp), true);
     int fd = *(my_esp + 1);
+    //printf ("\n\n in write: fd is %d\n\n", fd);
     char **buf_ptr = (char**)(my_esp + 2);
     int size = *(my_esp + 3);
-    //printf ("\nsize: %d\n", size);
+    //printf ("wiriting size: %d\n", size);
     char *buf = *buf_ptr;
     
-    //printf ("\nbuf: %s\n", (buf));
-    // int i;
-    // for (i = size; i >= 0; i--) 
-    // {
-    //   printf ("\nbuffer elem %d is %s\n", i, &buf[i]);
-    // }
+        // printf ("\nbuf: %s\n", (buf));
+        // int i;
+        // for (i = size; i >= 0; i--) 
+        // {
+        // printf ("\nbuffer elem %d is %s\n", i, &buf[i]);
+        // }
 
     if (fd == 1)
     { // Write to console
@@ -372,15 +367,17 @@ write_handler (struct intr_frame *f)
           cur_file = list_entry (iterator, struct file_elem, elem);
           if (cur_file != NULL && cur_file->fd == fd)
           {
-            
             f->eax = file_write (cur_file->file, (void*) (my_esp + 2), *(my_esp + 3));
+            break;
           }
           else
           {
+            //printf ("\n\nin write, setting eax to -1\n\n");
             f->eax = -1;
           }
         }
         lock_release (&file_sys_lock);
+        
     }
   }
   else
@@ -393,7 +390,6 @@ write_handler (struct intr_frame *f)
 static void 
 seek_handler (struct intr_frame *f)
 {
-  //printf("in seek handler\n");
   int *my_esp = (int*) f->esp;
   if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2))
   {
@@ -495,6 +491,7 @@ close_handler (struct intr_frame *f)
         }
       }
     lock_release (&file_sys_lock);
+    
   }
   else
   {
@@ -560,13 +557,13 @@ open_handler (struct intr_frame *f)
     }
     else
     {
-      struct file_elem *f_elem = malloc (sizeof (f_elem));
+      struct file_elem *f_elem = malloc (sizeof (struct file_elem));
       f_elem->file = cur_file;
       struct thread *cur = thread_current ();
       f_elem->fd = cur->fd_count;
       cur->fd_count++;
       lock_acquire (&file_sys_lock);
-      list_push_back (&cur->file_list, &f_elem->elem);
+      list_push_front (&cur->file_list, &f_elem->elem);
       lock_release (&file_sys_lock);
       f->eax = f_elem->fd;
     }

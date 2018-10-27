@@ -130,6 +130,8 @@ struct thread
     // struct semaphore load_sema;
 
     int fd_count;
+
+    bool set_exit;
     /* End Driving */
 
 #ifdef USERPROG

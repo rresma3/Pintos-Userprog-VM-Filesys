@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "*.inc": "c",
+        "seq-test.h": "c"
+    }
+}

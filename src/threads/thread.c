@@ -511,6 +511,7 @@ init_thread (struct thread *t, const char *name, int priority)
   sema_init (&t->zombie_sema, 0);
   sema_init (&t->exit_sema, 0);
   t->waited_on_child = 0;
+  t->set_exit = false;
 
 
   //printf ("\nis main? %d\n", strcmp(t->name, "main"));

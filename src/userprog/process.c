@@ -23,7 +23,6 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (char *argv[], int argc, void (**eip) (void), void **esp);
-//extern struct list all_list;
 
 
 /* Sam Driving */
@@ -55,19 +54,19 @@ process_execute (const char *file_name)
 
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   struct thread *cur = thread_current ();
-  // printf ("%s is the current thread executing\n", cur->name);
+ 
   if (tid == TID_ERROR)
   {
     palloc_free_page (fn_copy);
   }
 
+  /*wait for the child to finish loading*/
   sema_down (&cur->child_sema);
   if (!cur->load_success)
   {
+    /*child loaded improperly*/
     return -1;
   }
-  
-  
   return tid;
 }
 
@@ -89,7 +88,7 @@ start_process (void *file_name_)
 /*Miles Driving
   first make a copy of the file name*/
   char* cmd_line  = (char *) malloc (sizeof (char) * (strlen (file_name) + 1));
-  strlcpy(cmd_line, file_name, strlen (file_name) + 1);
+  strlcpy (cmd_line, file_name, strlen (file_name) + 1);
   /*tokenize arguments and pass that into the new thread.
   keep arguments in a list */
   
@@ -104,7 +103,7 @@ start_process (void *file_name_)
   {
     struct args *cur = (struct args *) malloc (sizeof (struct args));
     cur->argument = token;
-    count += strlen(token) + 1;
+    count += strlen (token) + 1;
     // prepare args by adding to list
     list_push_back (&args_list, &cur->elem);
   }
@@ -113,7 +112,6 @@ start_process (void *file_name_)
   int argc = list_size (&args_list);
   char *arg_vector[argc];
   struct list_elem *iterator;
-  //printf("argc: %d\n", argc);
   for (i = 0; i < argc; i++)
   {
     iterator = list_pop_front (&args_list);
@@ -121,16 +119,14 @@ start_process (void *file_name_)
     char *argument = cur->argument;
     arg_vector[i] = argument;
   }
-/*now arg_vector contains the argument vector */
-  
-
-
+  /*now arg_vector contains the argument vector */
+  /*load the exe and get the status*/
   success = load ( arg_vector, argc, &if_.eip, &if_.esp);
   
   /* If load failed, quit. */
   palloc_free_page (file_name);
   
-  //get the current thread which is the child
+  /*get the current thread which is the child*/
   struct thread *child = thread_current ();
   if (!success)
   {
@@ -142,22 +138,12 @@ start_process (void *file_name_)
   }
   else
   {
-    //printf("load successful\n");
     //load succeeded, notify parent and sema up
     child->parent->load_success = true;
     sema_up (&child->parent->child_sema);
   }
 
-    
-  // else
-  // {
-  //   ASSERT (success);
-  //   //FIXME: double check this. thread_cur might be child or parent
-  //   struct thread *cur_parent = thread_current ()->parent;
-  //   ASSERT (cur_parent != NULL);
-  //   sema_up (&cur_parent->load_sema);
-  // }
-    
+  /*end Miles Driving*/
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -181,7 +167,6 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid) 
 {
-  //printf ("in process wait\n");
   /* Ryan Driving */
   int ret_exit_code = -1;
   // save reference to current thread
@@ -196,7 +181,6 @@ process_wait (tid_t child_tid)
     // check if the current child is being waited on already, if so, return
     if (cur_child->waited_on == 0)
     {
-      //printf ("not being waited on\n");
       // our child is not being waited on, so we proceed
       cur_thread->waited_on_child = cur_child->child_tid;
       cur_child->waited_on = 1;
@@ -204,9 +188,7 @@ process_wait (tid_t child_tid)
       // release our child's lock before we attempt to reap
       lock_release (&cur_thread->child_list_lock);
       // try to reap, sema_up() will be called in exit handler
-      //printf ("reap sema down\n");
       sema_down (&cur_thread->reap_sema);
-      //printf ("child has exited\n");
       // grab the child's exit code
       lock_acquire (&cur_thread->child_list_lock);
       list_remove (&cur_child->child_elem);
@@ -222,7 +204,6 @@ process_wait (tid_t child_tid)
   // garbage collect
   cur_thread = NULL;
   cur_child = NULL;
-  //while(1){}
   return ret_exit_code;
   /* End driving */
 }
@@ -232,10 +213,9 @@ process_wait (tid_t child_tid)
 struct child*
 get_child(tid_t tid, struct thread *cur_thread)
 {
-  //printf ("getting child %d\n", tid);
   struct list_elem * e = NULL;
   for (e=list_begin(&cur_thread->child_list);
-       e!=list_end(&cur_thread->child_list); e=list_next(e))
+       e!=list_end (&cur_thread->child_list); e=list_next (e))
   {
     // save reference to our current child
     struct child *result = list_entry(e, struct child, child_elem);
@@ -243,11 +223,9 @@ get_child(tid_t tid, struct thread *cur_thread)
     // check if the tid's match, if so we have found our child
     if(result->child_tid == tid)
     {
-      //printf ("TID match\n");
       ASSERT (&cur_thread->child_list_lock != NULL);
       return result;
     }
-    //free(result);
   }
   return NULL;
 }
@@ -256,8 +234,6 @@ get_child(tid_t tid, struct thread *cur_thread)
 void 
 free_resources(struct thread *t)
 {
-  //printf("in free resources: %s\n" , t->name);
-  //printf ("parent name: %s\n", t->parent->name); 
   // if the current thread's parent isn't dead, we must call sema
   if (t->parent != NULL)
   {
@@ -272,28 +248,21 @@ free_resources(struct thread *t)
 
   // synchronize and free the memory we don't need
   lock_acquire (&file_sys_lock);
-
   while (!list_empty (&t->file_list))
   {
-    // printf ("\nfreeing files!!!!!\n");
     iterator = list_pop_back (&t->file_list);
     cur_file = list_entry (iterator, struct file_elem, elem);
     file_close (cur_file->file);
   }    
-  
   lock_release (&file_sys_lock);
-
   lock_acquire (&t->child_list_lock);
-
   while (!list_empty (&t->child_list))
   {
     iterator = list_pop_back (&t->child_list);
     cur_child = list_entry (iterator, struct child, child_elem);
     free (cur_child);
   }
-  
   lock_release (&t->child_list_lock);
-
   // let zombie children know they can exit
   sema_up (&t->zombie_sema);
   t->parent = NULL;
@@ -303,9 +272,7 @@ free_resources(struct thread *t)
 void
 process_exit (void)
 {
-  //printf("\nin process exit\n");
   struct thread *cur_thread = thread_current ();
-  //printf ("%s is currently exiting!!!! \n", cur_thread->name);
   uint32_t *pd;
   bool be_reaped = false;
   // save reference to parent
@@ -318,29 +285,20 @@ process_exit (void)
   {
     // get the current thread's relevant child struct
     struct child *cur = get_child (cur_thread->tid, parent);
-    //printf ("got child %d\n", cur->child_tid);
     if (cur != NULL)
     {
       cur->child_exit_code = cur_thread->exit_code;
-       //printf ("set the childs exit code\n");
       /* wake up the current thread's parent if it is waiting
          on the exit code */
-         sema_down (&parent->exit_sema);
-         //printf ("parent is waiting on: %d\n", cur_thread->parent->waited_on_child);
-         
+      sema_down (&parent->exit_sema);
       if (cur_thread->parent->waited_on_child == cur_thread->tid)
       {
-        //printf ("found waited on child:\n");
         cur->waited_on = 0;
         be_reaped = true;
       }    
     }
-   
-    //free (cur);
   }
-  // lock_release (&parent->child_list_lock);
   // garbage collection
-
   // tokenize the first part of the name
   char *save_ptr;
   char *name = strtok_r (cur_thread->name, " ", &save_ptr);
@@ -350,9 +308,6 @@ process_exit (void)
   // close the executable file
   if (cur_thread->executable != NULL)
     file_close (cur_thread->executable);
-  // cur_thread = NULL;
-  // parent = NULL;
-
   free_resources (cur_thread);
 
   /* Destroy the current process's page directory and switch back
@@ -473,7 +428,6 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
   bool success = false;
   int i;
 
-
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
 
@@ -485,7 +439,8 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
-
+  lock_acquire (&file_sys_lock);
+  /*open the file from the file sys*/
   file = filesys_open (argv[0]);
   if (file == NULL) 
     {
@@ -580,7 +535,10 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
 
   /* Set up stack. */
   if (!setup_stack (argv, argc, esp))
+  {
     goto done;
+  }
+    
   
 
   /* Start address. */
@@ -590,18 +548,12 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
   
   /* Ryan Driving */
   // Deny all attempted writes to executables
-  // printf ("\n\ndenying write to my file\n\n");
   file_deny_write (file);
   t->executable = file;
 
  done:
- //hex_dump((int)esp, esp, ((int)PHYS_BASE - (int)esp), true);
   /* We arrive here whether the load is successful or not. */
-  if (!success)
-  {
-    file_close (file);
-    t->executable = NULL;
-  }
+  lock_release (&file_sys_lock);
   return success;
 }
 
@@ -734,7 +686,6 @@ setup_stack (char *argv[], int argc, void **esp)
         // go through the command line and start adding arguments into our list
         int arg_addrs[argc];
         int i;
-        //for (i = argc - 1; i >= 0; i--)
         for (i = 0; i < argc; i++)
         {
             // count number of bytes needed
@@ -742,9 +693,8 @@ setup_stack (char *argv[], int argc, void **esp)
             // check for page size
             if (count > PGSIZE)
               return false;
-            // = &argv[i]
-            //printf("%x\n", (int)esp_cpy);
-            // prepare args by adding to list
+      
+            //add the arg addresses to an array
             esp_cpy -= strlen (argv[i]) + 1;
             arg_addrs[i] = (int) esp_cpy;
             memcpy (esp_cpy, (void *) argv[i], strlen (argv[i]) + 1);
@@ -753,6 +703,8 @@ setup_stack (char *argv[], int argc, void **esp)
         int zero = 0;
         //align on 4 byte word
         int word_align = ((unsigned int)esp_cpy % 4);
+
+        /*get the size of the args*/
         int j;
         for (j = 0; j < word_align; j++)
         {
@@ -763,15 +715,14 @@ setup_stack (char *argv[], int argc, void **esp)
         // check size again
         if (count > PGSIZE)
           return false;
+
         // sentinel 
         esp_cpy -= sizeof (char *);
         
         //addresses
         int k;
-        //for (k = 0; k < argc; k++)
         for (k = argc - 1; k >= 0; k--)
         {
-          //printf("%x\n", (int)arg_addrs[k]);
           esp_cpy -= sizeof (char*);
           memcpy(esp_cpy, &arg_addrs[k], sizeof (char*));
         }
@@ -790,7 +741,6 @@ setup_stack (char *argv[], int argc, void **esp)
         esp_cpy -= sizeof (void *);
         memcpy (esp_cpy, &zero, sizeof (void *));
         *esp = esp_cpy;
-        //hex_dump((int*)esp_cpy, (int*)esp_cpy, (int)(PHYS_BASE - (int)esp_cpy), true);
       }
       else
         palloc_free_page (kpage);
