@@ -269,7 +269,7 @@ filesize_handler (struct intr_frame *f)
 static void 
 read_handler (struct intr_frame *f)
 {
-  //printf("in read handler\n");
+  
   int *my_esp = (int*) f->esp;
   // Check second to last arg's content and then last arg
    // Check second to last arg's content and then last arg
@@ -293,6 +293,7 @@ read_handler (struct intr_frame *f)
     }
     else
     {
+      //printf ("\n\nDEBUGGING\n\n");
       struct list_elem *iterator;
       struct file_elem *cur_file;
       lock_acquire (&file_sys_lock);
@@ -414,7 +415,6 @@ seek_handler (struct intr_frame *f)
         cur_file = list_entry (iterator, struct file_elem, elem);
         if (cur_file != NULL && cur_file->fd == fd)
         {
-          //TODO: verify this bit stuff is right
           file_seek (cur_file->file, position);
         }
       }
@@ -449,7 +449,7 @@ tell_handler (struct intr_frame *f)
         cur_file = list_entry (iterator, struct file_elem, elem);
         if (cur_file != NULL && cur_file->fd == fd)
         {
-          f->eax = file_tell (cur_file->file); // Set return value to pos
+          f->eax = file_tell (cur_file->file); 
         }
       }
     lock_release (&file_sys_lock);
@@ -477,6 +477,12 @@ close_handler (struct intr_frame *f)
 
     int fd = *(my_esp + 1);
 
+    if (fd == NULL || fd == 0 || fd == 1)
+    {
+      lock_release (&file_sys_lock);
+      return;
+    }
+
     // TODO: optimize loop
     for (iterator = list_begin(cur_file_list);
          iterator != list_end (cur_file_list);
@@ -487,11 +493,10 @@ close_handler (struct intr_frame *f)
         {
           list_remove (iterator); // Remove file from list
           file_close (cur_file->file);  // Close file.
+          free (cur_file);
           break;
         }
       }
-      free (cur_file); // Deallocate deleted file
-
     lock_release (&file_sys_lock);
   }
   else
@@ -562,7 +567,9 @@ open_handler (struct intr_frame *f)
       struct thread *cur = thread_current ();
       f_elem->fd = cur->fd_count;
       cur->fd_count++;
+      lock_acquire (&file_sys_lock);
       list_push_back (&cur->file_list, &f_elem->elem);
+      lock_release (&file_sys_lock);
       f->eax = f_elem->fd;
     }
     

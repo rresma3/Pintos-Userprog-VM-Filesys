@@ -272,14 +272,15 @@ free_resources(struct thread *t)
 
   // synchronize and free the memory we don't need
   lock_acquire (&file_sys_lock);
-
+    // close the executable file
+  if (t->executable != NULL)
+    file_close (t->executable);
   while (!list_empty (&t->file_list))
   {
     // printf ("\nfreeing files!!!!!\n");
     iterator = list_pop_back (&t->file_list);
     cur_file = list_entry (iterator, struct file_elem, elem);
     file_close (cur_file->file);
-    // free (cur_file); 
   }    
   
   lock_release (&file_sys_lock);
@@ -290,7 +291,7 @@ free_resources(struct thread *t)
   {
     iterator = list_pop_back (&t->child_list);
     cur_child = list_entry (iterator, struct child, child_elem);
-    // free (cur_child);
+    free (cur_child);
   }
   
   lock_release (&t->child_list_lock);
@@ -298,7 +299,6 @@ free_resources(struct thread *t)
   // let zombie children know they can exit
   sema_up (&t->zombie_sema);
   t->parent = NULL;
-  free (t);
 }
 
 /* Free the current process's resources. */
@@ -342,7 +342,7 @@ process_exit (void)
   }
   // lock_release (&parent->child_list_lock);
   // garbage collection
-  
+
   // tokenize the first part of the name
   char *save_ptr;
   char *name = strtok_r (cur_thread->name, " ", &save_ptr);
@@ -351,7 +351,7 @@ process_exit (void)
   // cur_thread = NULL;
   // parent = NULL;
 
-  
+  free_resources (cur_thread);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -369,7 +369,7 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-    free_resources (cur_thread);
+  free (cur_thread);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -585,11 +585,20 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
+  
+  /* Ryan Driving */
+  // Deny all attempted writes to executables
+  file_deny_write (file);
+  t->executable = file;
 
  done:
  //hex_dump((int)esp, esp, ((int)PHYS_BASE - (int)esp), true);
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  if (!success)
+  {
+    file_close (file);
+    t->executable = NULL;
+  }
   return success;
 }
 
