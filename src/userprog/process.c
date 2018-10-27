@@ -333,9 +333,15 @@ process_exit (void)
   }
   // lock_release (&parent->child_list_lock);
   // garbage collection
+  
+  // tokenize the first part of the name
+  char *save_ptr;
+  char *name = strtok_r (cur_thread->name, " ", &save_ptr);
+  
+  printf ("%s: exit(%d)\n", name, cur_thread->exit_code);
   free_resources (cur_thread);
-  cur_thread = NULL;
-  parent = NULL;
+  // cur_thread = NULL;
+  // parent = NULL;
 
   
 

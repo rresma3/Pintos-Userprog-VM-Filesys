@@ -67,7 +67,7 @@ syscall_handler (struct intr_frame *f)
 
   int syscall_num = *((int*) my_esp);
 
-  // WHO ELSE BUT YA BOI BRIAN BEHIND THAT MUTHAFUCKIN WHEEL, BITCH 😎
+  // B-Dawg drivin'
   switch (syscall_num)
   {
     case SYS_HALT :
@@ -146,10 +146,7 @@ error_exit (int exit_status)
   struct thread *cur = thread_current ();
   cur->exit_code = exit_status;
 
-  // tokenize the first part of the name
-  char *save_ptr;
-  char *name = strtok_r (cur->name, " ", &save_ptr);
-  printf ("%s: exit(%d)\n", name, exit_status);
+  
 
   thread_exit ();
 }
