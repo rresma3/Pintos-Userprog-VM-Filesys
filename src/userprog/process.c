@@ -55,6 +55,7 @@ process_execute (const char *file_name)
 
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   struct thread *cur = thread_current ();
+  printf ("%s is the current thread executing\n", cur->name);
   if (tid == TID_ERROR)
   {
     palloc_free_page (fn_copy);
@@ -269,22 +270,27 @@ free_resources(struct thread *t)
 
   // synchronize and free the memory we don't need
   lock_acquire (&file_sys_lock);
+
   while (!list_empty (&t->file_list))
   {
+    // printf ("\nfreeing files!!!!!\n");
     iterator = list_pop_back (&t->file_list);
     cur_file = list_entry (iterator, struct file_elem, elem);
     file_close (cur_file->file);
-    free (cur_file); 
-  }
+    // free (cur_file); 
+  }    
+  
   lock_release (&file_sys_lock);
 
   lock_acquire (&t->child_list_lock);
+
   while (!list_empty (&t->child_list))
   {
     iterator = list_pop_back (&t->child_list);
     cur_child = list_entry (iterator, struct child, child_elem);
-    free (cur_child);
+    // free (cur_child);
   }
+  
   lock_release (&t->child_list_lock);
 
   // let zombie children know they can exit
@@ -299,6 +305,7 @@ process_exit (void)
 {
   //printf("\nin process exit\n");
   struct thread *cur_thread = thread_current ();
+  printf ("%s is currently exiting!!!! \n", cur_thread->name);
   uint32_t *pd;
 
   // save reference to parent
@@ -337,9 +344,8 @@ process_exit (void)
   // tokenize the first part of the name
   char *save_ptr;
   char *name = strtok_r (cur_thread->name, " ", &save_ptr);
-  
   printf ("%s: exit(%d)\n", name, cur_thread->exit_code);
-  free_resources (cur_thread);
+  
   // cur_thread = NULL;
   // parent = NULL;
 
@@ -361,6 +367,7 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+    free_resources (cur_thread);
 }
 
 /* Sets up the CPU for running user code in the current

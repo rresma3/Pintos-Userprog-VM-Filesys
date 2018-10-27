@@ -102,7 +102,7 @@ struct thread
     // list of open files
     struct list file_list;
     /* End Driving */
-
+    struct file *executable;
     /* Ryan Driving */
     // used for when a process exits
     int exit_code;
