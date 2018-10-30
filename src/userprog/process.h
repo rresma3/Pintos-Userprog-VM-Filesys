@@ -10,6 +10,7 @@ void process_activate (void);
 
 /* exit and wait helper functions */
 struct child* get_child (tid_t tid, struct thread *cur_thread);
+struct file_elem* get_file (struct list* files, int fd);
 void free_resources (struct thread *t);
 
 /* Ryan Driving */

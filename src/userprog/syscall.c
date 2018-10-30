@@ -362,7 +362,7 @@ write_handler (struct intr_frame *f)
           cur_file = list_entry (iterator, struct file_elem, elem);
           if (cur_file != NULL && cur_file->fd == fd)
           {
-            f->eax = file_write (cur_file->file, (void*) (my_esp + 2),
+            f->eax = file_write (cur_file->file, (void*) (*(my_esp + 2)),
                     *(my_esp + 3));
             break;
           }
@@ -583,15 +583,13 @@ open_handler (struct intr_frame *f)
       struct file_elem *f_elem = malloc (sizeof (struct file_elem));
       f_elem->file = cur_file;
       struct thread *cur = thread_current ();
-      f_elem->fd = cur->fd_count;
       /* Create unique fd_count every time file opened */
       cur->fd_count++;
-
+      f_elem->fd = cur->fd_count;
       lock_acquire (&file_sys_lock);
       /* Add to file list */
       list_push_front (&cur->file_list, &f_elem->elem);
       lock_release (&file_sys_lock);
-
       f->eax = f_elem->fd;
     }
   }
@@ -601,3 +599,4 @@ open_handler (struct intr_frame *f)
   }
 }
 /* End Driving */
+

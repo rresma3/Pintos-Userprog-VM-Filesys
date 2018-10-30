@@ -236,6 +236,21 @@ get_child (tid_t tid, struct thread *cur_thread)
   return NULL;
 }
 
+struct file_elem *
+get_file (struct list* files, int fd)
+{
+  struct list_elem *e;
+  for (e = list_begin (files); e != list_end (files);
+       e = list_next (e))
+    {
+      struct file_elem *f = list_entry (e, struct file_elem, elem);
+        if(f->fd == fd)
+          return f;
+    }
+  return NULL;
+}
+
+
 void 
 free_resources (struct thread *t)
 {
@@ -338,7 +353,7 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-  free (cur_thread);
+  // free (cur_thread);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -440,6 +455,11 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
   bool success = false;
   int i;
 
+  /* Brian driving */
+  /* Open executable file. */
+  lock_acquire (&file_sys_lock);
+  /* Brian end driving */
+
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
 
@@ -447,13 +467,9 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
   {
     goto done;
   } 
-
   process_activate ();
 
-  /* Brian driving */
-  /* Open executable file. */
-  lock_acquire (&file_sys_lock);
-  /* Brian end driving */
+
 
   /* open the file from the file sys */
   file = filesys_open (argv[0]);
@@ -706,8 +722,8 @@ setup_stack (char *argv[], int argc, void **esp)
             /* count number of bytes needed */
             count += strlen (argv[i]) + 1;
             /* check for page size */
-            if (count > PGSIZE)
-              return false;
+            // if (count > PGSIZE)
+            //   return false;
       
             /* add the arg addresses to an array */
             esp_cpy -= strlen (argv[i]) + 1;
@@ -728,8 +744,8 @@ setup_stack (char *argv[], int argc, void **esp)
         }
 
         /* check size again */
-        if (count > PGSIZE)
-          return false;
+        // if (count > PGSIZE)
+        //   return false;
 
         /* sentinel */
         esp_cpy -= sizeof (char *);
