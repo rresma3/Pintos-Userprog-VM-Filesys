@@ -299,7 +299,7 @@ process_exit (void)
   bool be_reaped = false;
 
   /* Brian driving */
-  /* save reference to parent */
+  /* save reference to parent. */
   struct thread *parent = cur_thread->parent;
 
   /* must check if the current thread to be exited is a child
