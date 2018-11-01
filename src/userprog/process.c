@@ -218,6 +218,7 @@ process_wait (tid_t child_tid)
 struct child*
 get_child (tid_t tid, struct thread *cur_thread)
 {
+  lock_acquire (&cur_thread->child_list_lock);
   struct list_elem * e = NULL;
   for (e = list_begin (&cur_thread->child_list);
        e != list_end (&cur_thread->child_list); e = list_next (e))
@@ -230,9 +231,11 @@ get_child (tid_t tid, struct thread *cur_thread)
     if (result->child_tid == tid)
     {
       ASSERT (&cur_thread->child_list_lock != NULL);
+      lock_release (&cur_thread->child_list_lock);
       return result;
     }
   }
+  lock_release (&cur_thread->child_list_lock);
   return NULL;
 }
 
@@ -722,8 +725,8 @@ setup_stack (char *argv[], int argc, void **esp)
             /* count number of bytes needed */
             count += strlen (argv[i]) + 1;
             /* check for page size */
-            // if (count > PGSIZE)
-            //   return false;
+            if (count > PGSIZE)
+              return false;
       
             /* add the arg addresses to an array */
             esp_cpy -= strlen (argv[i]) + 1;
@@ -744,8 +747,8 @@ setup_stack (char *argv[], int argc, void **esp)
         }
 
         /* check size again */
-        // if (count > PGSIZE)
-        //   return false;
+        if (count > PGSIZE)
+          return false;
 
         /* sentinel */
         esp_cpy -= sizeof (char *);
