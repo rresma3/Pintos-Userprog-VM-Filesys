@@ -193,7 +193,7 @@ process_wait (tid_t child_tid)
       /* try to reap, sema_up() will be called in exit handler */
       sema_down (&cur_thread->reap_sema);
 
-      /* grab the child's exit code */
+      /* grab the child's exit code. */
       lock_acquire (&cur_thread->child_list_lock);
       list_remove (&cur_child->child_elem);
       ret_exit_code = cur_child->child_exit_code;
