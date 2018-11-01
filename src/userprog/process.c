@@ -187,7 +187,7 @@ process_wait (tid_t child_tid)
       cur_thread->waited_on_child = cur_child->child_tid;
       cur_child->waited_on = 1;
 
-      //sema_down (&cur_thread->exit_sema);
+      sema_up (&cur_thread->exit_sema);
       /* release our child's lock before we attempt to reap */
       lock_release (&cur_thread->child_list_lock);
       /* try to reap, sema_up() will be called in exit handler */
@@ -314,7 +314,7 @@ process_exit (void)
       cur->child_exit_code = cur_thread->exit_code;
       /* wake up the current thread's parent if it is waiting
          on the exit code */
-      //sema_up (&parent->exit_sema);
+      sema_down (&parent->exit_sema);
       if (cur_thread->parent->waited_on_child == cur_thread->tid)
       {
         cur->waited_on = 0;
