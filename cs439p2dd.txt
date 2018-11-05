@@ -1,0 +1,76 @@
+                     +--------------------------+
+                     |           CS 439         |
+                     | PROJECT 2: USER PROGRAMS |
+                     |      DESIGN DOCUMENT     |
+                     +--------------------------+
+
+
+The questions in this design document should reflect the design of the code you
+wrote for the project.  Your grade will reflect both the quality of your answer
+in this document and the quality of the design implementation in your code.  You
+may receive partial credit for answering questions for parts of the project that
+you did not get to implement, but you must indicate in your answer that there is
+no corresponding implementation, or you will not receive any credit.
+
+
+For each question, you should include both the name of the file(s), function
+name(s), and the line numbers where the relevant code may be found.
+
+
+These design documents should be completed individually.  Group members are
+welcome to use this document as a guide for design and are welcome to discuss
+the questions, but there should be no group notes or other sorts of copying of
+design documents.
+
+
+When you have completed your design document, submit it to the Canvas assignment
+Project 2 Design and Documentation.  ***Your submission must be a text file and
+each line must not extend past 80 characters.  (Note that rtf files are NOT text
+files.)
+
+
+Please note that for Project 2 only, this design document will not be directly
+graded.  We instead will use it to guide our questions for your design
+interview, and that interview, along with a review of your code will determine
+your grade.  Please watch Piazza for more information.
+
+
+---- Name ----
+
+>> Fill your name, UT EID, CS login, email address, and unique number:
+
+Name: Brian Gardner
+EID: bm2645
+CS login: bgardner
+Email: briangardner@utexas.edu
+Unique Number: 51520
+
+Slip days used on this project: 1
+
+
+---- GROUP ----
+
+>> Fill the names, UT EIDs, CS logins, email addresses, and unique numbers
+>> of your group members.  Also fill in each person's ranking on the 
+>> partner evaluation scale, as determined by you.
+
+Name1: Sam Rodriguez
+EID1: sar3869
+CS login: srod
+Email: samrod5@utexas.edu
+Unique Number: 51530
+Ranking (scale below): Excellent
+
+Name2: Miles Chandler
+EID2: mac9325
+CS login: mchandle
+Email: miles.chandler@ichandler.net
+Unique Number: 51520
+Ranking (scale below): Excellent
+
+Name3: Ryan Resma
+EID2: rmr3429
+CS login: rmr3429
+Email: ryan.resma@utexas.edu
+Unique Number: 51525
+Ranking (scale below): Excellent
