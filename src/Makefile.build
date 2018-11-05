@@ -66,6 +66,7 @@ userprog_SRC += userprog/tss.c		# TSS management.
 # Brian Driving
 # No virtual memory code yet.
 vm_SRC = vm/frame.c			# For the frame table
+vm_SRC += vm/page.c         # For Paging
 # End Driving
 
 # Filesystem code.
