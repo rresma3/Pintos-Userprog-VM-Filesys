@@ -55,11 +55,35 @@ void f_table_free (void *page)
     palloc_free_page (page);
 }
 
+struct frame* get_frame (void *page)
+{
+    lock_acquire (&f_table_lock);
+    struct list_elem * e = NULL;
+    for (e = list_begin (&f_table);
+         e != list_end (&f_table); e = list_next (e))
+    {
+        /* save reference to our current child */
+        struct frame *result = list_entry(e, struct frame, elem);
+        ASSERT (result != NULL);
+
+        /* check if the tid's match, if so we have found our child */
+        // TODO:
+        // checking if pages are the same
+        if (true)
+        {
+            lock_release (&f_table_lock);
+            return result;
+        }
+    }
+    lock_release (&f_table_lock);
+    return NULL;
+}
+
 void f_table_add (void *page)
 {
     struct frame *curr_frame = malloc (sizeof (struct frame));
     curr_frame->page = page;
-    curr_frame->t = current_thread ();
+    curr_frame->t = thread_current ();
 
     lock_acquire (&f_table_lock);
     list_push_back (&f_table, &curr_frame->elem);
@@ -68,5 +92,7 @@ void f_table_add (void *page)
 
 bool f_table_evict (void *frame)
 {
+    // TODO:
+    // Second chance eviction algorithm
     return false;
 }

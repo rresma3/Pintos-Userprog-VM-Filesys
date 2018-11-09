@@ -96,6 +96,8 @@ syscall_handler (struct intr_frame *f)
       break;
     case SYS_SEEK :
       seek_handler (f);
+      // TODO: what is this
+      // bool is_occupied;
       break;
     case SYS_TELL :
       tell_handler (f);

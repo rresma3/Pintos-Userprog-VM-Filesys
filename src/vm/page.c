@@ -4,6 +4,8 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/process.h"
+#include "userprog/pagedir.h"
+#include <hash.h>
 #include "vm/frame.h"
 #include "vm/page.h"
 #include <string.h>
@@ -73,6 +75,7 @@ bool load_file (struct sp_entry *spte)
     void *addr = pagedir_get_page (thread_current ()->pagedir, spte->uaddr);
 
     // start allcating the frame
+
     void *frame = f_table_alloc(PAL_USER);
 
     if (frame != NULL)
@@ -121,7 +124,7 @@ bool add_file_spt (void *uaddr, bool writeable, struct file *file,
         spte->uaddr = uaddr;
 
         struct hash_elem *save = NULL;
-        save = hash_insert (&thread_current ()->spt, &spte->elem)
+        save = hash_insert (&thread_current ()->spt, &spte->elem);
         if (save != NULL)
         {
             // able to insert in hash table
