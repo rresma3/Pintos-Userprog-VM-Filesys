@@ -72,7 +72,7 @@ bool load_page (void *uaddr)
 
 bool load_file (struct sp_entry *spte)
 {
-    void *addr = pagedir_get_page (thread_current ()->pagedir, spte->uaddr);
+    //void *addr = pagedir_get_page (thread_current ()->pagedir, spte->uaddr);
 
     // start allcating the frame
 
@@ -133,8 +133,10 @@ bool add_file_spt (void *uaddr, bool writeable, struct file *file,
         return false;
 
     }
+    return false;
 }
 
+//FIXME: should this be static?
 static struct sp_entry* get_sp_entry (void *uaddr)
 {
     struct sp_entry spte;
