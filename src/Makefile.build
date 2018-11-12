@@ -67,6 +67,7 @@ userprog_SRC += userprog/tss.c		# TSS management.
 # No virtual memory code yet.
 vm_SRC = vm/frame.c			# For the frame table
 vm_SRC += vm/page.c         # For Paging
+vm_SRC += vm/swap.c			# For the swap table
 # End Driving
 
 # Filesystem code.
