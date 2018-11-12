@@ -1,33 +1,41 @@
 #include "filesys/file.h"
 #include "threads/malloc.h"
 #include "threads/palloc.h"
+#include "threads/pte.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
-#include <hash.h>
+#include "userprog/syscall.h"
+#include "lib/kernel/hash.h"
 #include "vm/frame.h"
 #include "vm/page.h"
 #include <string.h>
 
-void sp_table_init (struct hash *spt)
+/* SPT initialization */
+void 
+sp_table_init (struct hash *spt)
 {
     hash_init (spt, page_hash_func, page_less_func, NULL);
 }
 
-static unsigned page_hash_func (const struct hash_elem *e, void *aux UNUSED)
+/* Hash Table functionality */
+static unsigned 
+page_hash_func (const struct hash_elem *e, void *aux UNUSED)
 {
     struct sp_entry *spte = hash_entry (e, struct sp_entry, elem);
     return hash_int((int) spte->uaddr);
 }
 
-static bool page_less_func (const struct hash_elem *a,
-                            const struct hash_elem *b,
-                            void *aux UNUSED)
+/* Hash Table functionality */
+static bool 
+page_less_func (const struct hash_elem *a, const struct hash_elem *b,
+                void *aux UNUSED)
 {
     struct sp_entry *a_entry = hash_entry (a, struct sp_entry, elem);
     struct sp_entry *b_entry = hash_entry (b, struct sp_entry, elem);
 
+    // compare two supp page table entries w their diff address
     if (a_entry-> uaddr < b_entry->uaddr)
     {
         return true;
@@ -35,47 +43,60 @@ static bool page_less_func (const struct hash_elem *a,
     return false;
 }
 
-static void page_action_func (struct hash_elem *e, void *aux UNUSED)
+/* Hash Table functionality */
+static void 
+page_action_func (struct hash_elem *e, void *aux UNUSED)
 {
     struct sp_entry *spte = hash_entry (e, struct sp_entry, elem);
+    // TODO: check if in swap
+    if (spte->page_loc == IN_SWAP)
+    {
+        // clear swap spot
+    }
     free (spte);
 }
 
-void sp_table_destroy (struct hash *spt)
+/* SPT cleanup */
+void 
+sp_table_destroy (struct hash *spt)
 {
     hash_destroy (spt, page_action_func);
 }
 
-bool load_page (void *uaddr)
+/* load data to page based on initialized spte */
+bool 
+load_page (struct sp_entry *spte)
 {
-    struct sp_entry *spte = get_sp_entry(uaddr);
+    bool success = false;
     if (spte != NULL)
     {
+        // switch on location?
         uint8_t location = spte->page_loc;
-        bool success = false;
-        if (location == 0)
+        if (location == IN_FILE)
         {
             // in filesys
-            success = load_file (spte);
+            success = load_page_file (spte);
         }
-        else if (location == 1)
+        else if (location == IN_SWAP)
         {
             // load from swap?
+            // success = load_page_swap (spte);
         }
-        return success;
     }
-    else
-    {
-        return false;
-    }
+    return success;
 }
 
-bool load_file (struct sp_entry *spte)
+/* load data to page based on an initialized spte's file data */
+bool 
+load_page_file (struct sp_entry *spte)
 {
-    void *addr = pagedir_get_page (thread_current ()->pagedir, spte->uaddr);
+    struct thread *cur_thread = thread_current ();
+    void *addr = pagedir_get_page (cur_thread->pagedir, spte->uaddr);
+
+    // ensure that file pos is at the correct position
+    file_seek (spte->file, spte->offset);
 
     // start allcating the frame
-
     void *frame = f_table_alloc(PAL_USER);
 
     if (frame != NULL)
@@ -108,8 +129,10 @@ bool load_file (struct sp_entry *spte)
     }
 }
 
-bool add_file_spt (void *uaddr, bool writeable, struct file *file,
-                    off_t offset, off_t bytes_read, int size)
+/* Add file supp. page table entry to supplemental page table */
+bool 
+add_file_spte (void *uaddr, bool writeable, struct file *file,
+              off_t offset, off_t bytes_read, int size)
 {
     struct sp_entry *spte = malloc (sizeof (struct sp_entry));
     if (spte != NULL)
@@ -131,19 +154,29 @@ bool add_file_spt (void *uaddr, bool writeable, struct file *file,
             return true;
         }
         return false;
-
     }
 }
 
-static struct sp_entry* get_sp_entry (void *uaddr)
+/* Given spt hash table and its key (uvaddr), find 
+ * corresponding hash table entry */
+static struct sp_entry* 
+get_spt_entry (struct hash *spt, void *uaddr)
 {
     struct sp_entry spte;
     spte.uaddr = pg_round_down (uaddr);
 
-    struct hash_elem *curr = hash_find (&thread_current ()->spt, &spte.elem);
+    struct hash_elem *curr = hash_find (spt, &spte.elem);
     if (curr != NULL)
     {
         return hash_entry (curr, struct sp_entry, elem);
     }
     return NULL;
+}
+
+/* Allocate a stack page from where given address points */
+bool 
+grow_stack (void *uaddr)
+{
+    // TODO:
+    return false;
 }
