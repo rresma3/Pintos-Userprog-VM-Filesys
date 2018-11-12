@@ -44,7 +44,7 @@ void sp_table_destroy (struct hash *spt);
 /* loading of a page into memory, whether from swap or filesys */
 bool load_page (struct sp_entry *spte);
 bool load_page_file (struct sp_entry *spte);
-// bool load_swap (struct sp_entry *spte);
+bool load_page_swap (struct sp_entry *spte);
 
 /* Add a file supplemental page table entry to the current thread's
  * supplemental page table */

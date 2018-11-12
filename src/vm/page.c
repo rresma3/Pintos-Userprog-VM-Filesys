@@ -10,6 +10,7 @@
 #include "lib/kernel/hash.h"
 #include "vm/frame.h"
 #include "vm/page.h"
+#include "vm/swap.h"
 #include <string.h>
 
 /* SPT initialization */
@@ -79,8 +80,8 @@ load_page (struct sp_entry *spte)
         }
         else if (location == IN_SWAP)
         {
-            // load from swap?
-            // success = load_page_swap (spte);
+            // load from swap
+            success = load_page_swap (spte);
         }
     }
     return success;
@@ -129,6 +130,51 @@ load_page_file (struct sp_entry *spte)
     }
 }
 
+/* load data to page based on an initialized spte's swap data */
+bool
+load_page_swap (struct sp_entry *spte)
+{
+    struct thread *cur_thread = thread_current ();
+    void *addr = pagedir_get_page (cur_thread->pagedir, spte->uaddr);
+
+    // start allcating the frame
+    void *frame = f_table_alloc(PAL_USER);
+
+    if (frame != NULL)
+    {
+        // Map user page to newly allocated frame
+        bool success = false;
+        success = install_page (spte->uaddr, frame, spte->writeable);
+
+        if (!success)
+        {
+            // failed to install page
+            f_table_free (frame);
+            return false;
+        }
+
+        /* swap data from disk into physical memory */
+        swap_in (spte->swap_index, spte->uaddr);
+
+        // TODO: updating page location
+        if (spte->page_loc == IN_SWAP)
+        {
+            
+        }
+        else if (spte->page_loc == IN_FILE)
+        {
+
+        }
+
+        spte->is_loaded = true;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
 /* Add file supp. page table entry to supplemental page table */
 bool 
 add_file_spte (void *uaddr, bool writeable, struct file *file,
@@ -153,6 +199,10 @@ add_file_spte (void *uaddr, bool writeable, struct file *file,
             // able to insert in hash table
             return true;
         }
+        return false;
+    }
+    else
+    {
         return false;
     }
 }
