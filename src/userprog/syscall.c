@@ -36,7 +36,6 @@ static void write_handler (struct intr_frame *f);
 static void seek_handler (struct intr_frame *f);
 static void tell_handler (struct intr_frame *f);
 static void close_handler (struct intr_frame *f);
-static void error_exit (int exit_status);
 /* End Driving */
 
 
@@ -138,7 +137,7 @@ halt_handler ()
 /* Ryan Driving */
 /* Widely used method to handle bad pointer or invalid 
    arg on stack, exits the calling process with status of */
-static void 
+void 
 error_exit (int exit_status)
 {
   struct thread *cur = thread_current ();

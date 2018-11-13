@@ -13,6 +13,7 @@
 #include <list.h>
 #include "threads/synch.h"
 
+#define FRAME_ERROR -1
 
 struct frame {
     bool is_occupied;
@@ -34,9 +35,6 @@ struct frame_table {
     int num_free;
     
 };
-
-
-
 
 struct frame* get_frame (void *page);
 void f_table_init (void);

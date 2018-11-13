@@ -8,7 +8,9 @@
 
 struct frame_table *f_table;
 
-void f_table_init (void)
+/* Frame table initialization */
+void 
+f_table_init (void)
 {
     f_table = malloc (sizeof (struct frame_table));
     ASSERT (f_table != NULL);
@@ -19,14 +21,17 @@ void f_table_init (void)
     f_table->num_free = ft_max;
 }
 
-void *f_table_alloc (enum palloc_flags flag)
+/* Allocation of a frame within physical memory, should be allocated
+   within the User pool */
+void *
+f_table_alloc (enum palloc_flags flag)
 {
     ASSERT (flag == PAL_USER || flag == (PAL_ZERO | PAL_USER));
     if (flag == PAL_USER || flag == (PAL_ZERO | PAL_USER))
     {
         int index = f_table_get_index ();
         void *page = NULL;
-        if (index != -1)
+        if (index != FRAME_ERROR)
         {
             page = palloc_get_page (flag);
             ASSERT (page != NULL);
@@ -54,7 +59,8 @@ void *f_table_alloc (enum palloc_flags flag)
     }
 }
 
-struct frame *get_frame(void *page)
+struct frame* 
+get_frame(void *page)
 {
     struct frame *the_frame = NULL;
     lock_acquire(&f_table->ft_lock);
@@ -76,12 +82,12 @@ struct frame *get_frame(void *page)
 
 /* Linear searches frame table array, finds unoccupied frame,
    and returns its index */
-int f_table_get_index (void)
+int 
+f_table_get_index (void)
 {
     if (f_table->num_free == 0)
-    {
-        return -1;
-    }
+        return FRAME_ERROR;
+    
     struct frame *cur_frame = NULL;
     lock_acquire (&f_table->ft_lock);
     int i;
@@ -100,7 +106,8 @@ int f_table_get_index (void)
 //FIXME: evicting from the table is easy.
 //but how do you Remove references to the frame from any
 //page table that refers to it.?
-bool f_table_evict (void)
+bool 
+f_table_evict (void)
 {
     // Second chance eviction algorithm
 
@@ -154,7 +161,9 @@ bool f_table_evict (void)
     return false;
 }
 
-void f_table_free (void *page)
+
+void 
+f_table_free (void *page)
 {
     page++;
     return;

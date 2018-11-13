@@ -5,6 +5,8 @@
 
 /* Brian Driving */
 void syscall_init (void);
+void error_exit (int exit_status);
+/* End Driving */
 
 /*locks file access*/
 struct lock file_sys_lock;
