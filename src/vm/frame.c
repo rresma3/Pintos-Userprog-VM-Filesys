@@ -19,9 +19,8 @@ void f_table_init (void)
 
 void* f_table_alloc (enum palloc_flags flag) 
 {
-    ASSERT (flag == PAL_USER);
-    printf ("allocating frame in table\n");
-    if (flag == PAL_USER)
+    ASSERT (flag == PAL_USER || flag == (PAL_ZERO | PAL_USER));
+    if (flag == PAL_USER || flag == (PAL_ZERO | PAL_USER))
     {
         void *page = palloc_get_page(flag);
         if (page != NULL)
@@ -35,7 +34,7 @@ void* f_table_alloc (enum palloc_flags flag)
                 empty_frame->is_occupied = true;
                 empty_frame->t = thread_current ();
                 f_table->num_free--;
-                
+                lock_release (&f_table->ft_lock);
             }
             else 
             {
