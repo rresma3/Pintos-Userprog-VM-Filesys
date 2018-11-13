@@ -91,12 +91,8 @@ load_page (struct sp_entry *spte)
 bool 
 load_page_file (struct sp_entry *spte)
 {
-<<<<<<< HEAD
-    //void *addr = pagedir_get_page (thread_current ()->pagedir, spte->uaddr);
-=======
     struct thread *cur_thread = thread_current ();
     void *addr = pagedir_get_page (cur_thread->pagedir, spte->uaddr);
->>>>>>> 9d65c5f9a7e71abccbdac11e9722cd498a88e890
 
     // ensure that file pos is at the correct position
     file_seek (spte->file, spte->offset);
@@ -212,15 +208,10 @@ add_file_spte (void *uaddr, bool writeable, struct file *file,
     return false;
 }
 
-<<<<<<< HEAD
-//FIXME: should this be static?
-static struct sp_entry* get_sp_entry (void *uaddr)
-=======
 /* Given spt hash table and its key (uvaddr), find 
  * corresponding hash table entry */
 static struct sp_entry* 
 get_spt_entry (struct hash *spt, void *uaddr)
->>>>>>> 9d65c5f9a7e71abccbdac11e9722cd498a88e890
 {
     struct sp_entry spte;
     spte.uaddr = pg_round_down (uaddr);

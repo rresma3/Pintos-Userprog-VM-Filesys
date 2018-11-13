@@ -39,7 +39,7 @@ void* f_table_alloc (enum palloc_flags flag)
             }
             else 
             {
-                //need to evict a frame
+                // TODO:need to evict a frame
                 ASSERT (1 == 0);
             }
 

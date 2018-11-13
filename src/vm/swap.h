@@ -1,6 +1,10 @@
 #ifndef VM_SWAP_H
 #define VM_SWAP_H
 
+#include <stdbool.h>
+#include <stdint.h>
+#include "threads/synch.h"
+
 #define SWAP_ERROR -1
 
 /* Block device for the swap */
@@ -17,8 +21,9 @@ void swap_table_init (void);
 size_t swap_out (void *uaddr);
 
 /* Swap a frame out of a swap slot to mem page */
-void swap_in (size_t, void *);
+void swap_in (size_t swap_index, void *uaddr);
 
-void free_swap_slot (size_t);
+/* Vacate a given swap slot */
+void free_swap_slot (size_t swap_index);
 
-#endif /* vm/swap.h */
+#endif 
