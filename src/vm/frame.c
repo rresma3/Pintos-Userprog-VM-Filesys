@@ -35,7 +35,7 @@ void *f_table_alloc (enum palloc_flags flag)
             struct frame *empty_frame = f_table->frames + index;
             empty_frame->page = page;
             empty_frame->is_occupied = true;
-            empty_frame->is_evictable = true;
+            empty_frame->second_chance = false;
             empty_frame->t = thread_current ();
             f_table->num_free--;
             lock_release (&f_table->ft_lock);
@@ -120,16 +120,21 @@ bool f_table_evict (void)
         bool dirty = pagedir_is_dirty (temp_pd, temp_page);
 
         /* Not referenced and not written to 
-           Replace Page! */
+           Evict Page! */
         if (!accessed && !dirty) /* (0,0) */
         {
-            
+            /* Need to write to disk */
+            if (temp_frame->second_chance)
+            {
+                
+            }
         }
         /* Not referenced but written to 
            Write to disk, but may not be needed again */
         else if (!accessed && dirty) /* (0,1) */
         {
-
+            temp_frame->second_chance = true;
+            pagedir_set_dirty (temp_pd, temp_page, 0);
         }
         /* Recently referenced and not written to 
            May be needed again soon, but doesn't need to be written to disk */

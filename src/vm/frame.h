@@ -19,7 +19,7 @@ struct frame {
     void *page;
     struct spt_entry *spte;
     struct thread *t;
-    bool is_evictable;
+    bool second_chance;
 };
 
 
