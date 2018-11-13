@@ -66,8 +66,11 @@ sp_table_destroy (struct hash *spt)
 
 /* load data to page based on initialized spte */
 bool 
-load_page (struct sp_entry *spte)
+load_page (void *uaddr)
 {
+    struct thread *cur_thread = thread_current ();
+    struct sp_entry *spte = get_spt_entry (&cur_thread->spt, uaddr);
+
     bool success = false;
     if (spte != NULL)
     {
