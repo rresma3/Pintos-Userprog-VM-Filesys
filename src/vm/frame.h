@@ -41,8 +41,8 @@ struct frame_table {
 struct frame* get_frame (void *page);
 void f_table_init (void);
 void* f_table_alloc (enum palloc_flags flag);
-int f_table_get_idx (void);
-bool f_table_evict (void *frame);
+int f_table_get_index (void);
+bool f_table_evict (void);
 void f_table_free (void *page);
 
 #endif

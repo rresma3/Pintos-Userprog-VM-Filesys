@@ -150,8 +150,16 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  if (!load_page (fault_addr))
-  {
+  if (user && not_present)
+    {
+      if (!load_page (fault_addr))
+      { /* End current process on failed load */
+        thread_exit ();
+      }
+    }
+    else
+    {
+
       /* To implement virtual memory, delete the rest of the function
       body, and replace it with code that brings in the page to
       which fault_addr refers. */
@@ -162,8 +170,9 @@ page_fault (struct intr_frame *f)
             user ? "user" : "kernel");
 
     printf("There is no crying in Pintos!\n");
-
+    
     kill (f);
+
   }
 }
 
