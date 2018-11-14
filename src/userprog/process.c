@@ -570,14 +570,12 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
         }
     }
 
-  printf ("!!!!!!PEEPEE!!!!!\n");
   /* Set up stack. */
   if (!setup_stack (argv, argc, esp))
   {
     goto done;
   }
 
-  printf ("!!!!!( ͡° ͜ʖ ͡°)!!!!!!\n");
     
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
@@ -675,13 +673,11 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
       
-      printf ("!!!!!!!!!FUCK!!!!!!!!\n");
 
       if (!add_file_spte (upage, writable, file, ofs, read_bytes, zero_bytes))
       {
         return false;
       }
-      printf ("!!!!!!!!!SHIT!!!!!!!!\n");
 
       // /* Get a page of memory. */
       // //uint8_t *kpage = palloc_get_page (PAL_USER);

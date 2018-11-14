@@ -207,7 +207,6 @@ add_file_spte (void *uaddr, bool writeable, struct file *file,
 
         struct hash_elem *save = NULL;
 
-        //printf ("!!!!!!!!!BITCH!!!!!!!\n");
 
         return (hash_insert (&thread_current ()->spt, &spte->elem) == NULL);
         
