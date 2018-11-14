@@ -12,6 +12,16 @@
 #include "vm/page.h"
 #include "vm/swap.h"
 #include <string.h>
+#include <stdio.h>
+
+static unsigned page_hash_func (const struct hash_elem *e, void *aux UNUSED);
+static bool page_less_func (const struct hash_elem *a,
+                            const struct hash_elem *b,
+                            void *aux UNUSED);
+static void page_action_func (struct hash_elem *e, void *aux UNUSED);
+/* Given spt hash table and its key (uvaddr), find 
+ * corresponding hash table entry */
+static struct sp_entry* get_spt_entry (struct hash *spt, void *uaddr);
 
 /* SPT initialization */
 void 
@@ -25,7 +35,7 @@ static unsigned
 page_hash_func (const struct hash_elem *e, void *aux UNUSED)
 {
     struct sp_entry *spte = hash_entry (e, struct sp_entry, elem);
-    return hash_int((int) spte->uaddr);
+    return hash_int ((int) spte->uaddr);
 }
 
 /* Hash Table functionality */
@@ -94,8 +104,8 @@ load_page (void *uaddr)
 bool 
 load_page_file (struct sp_entry *spte)
 {
-    struct thread *cur_thread = thread_current ();
-    void *addr = pagedir_get_page (cur_thread->pagedir, spte->uaddr);
+    //struct thread *cur_thread = thread_current ();
+    //void *uaddr = pagedir_get_page (cur_thread->pagedir, spte->uaddr);
 
     // ensure that file pos is at the correct position
     file_seek (spte->file, spte->offset);
@@ -137,8 +147,8 @@ load_page_file (struct sp_entry *spte)
 bool
 load_page_swap (struct sp_entry *spte)
 {
-    struct thread *cur_thread = thread_current ();
-    void *addr = pagedir_get_page (cur_thread->pagedir, spte->uaddr);
+    //struct thread *cur_thread = thread_current ();
+    //void *uaddr = pagedir_get_page (cur_thread->pagedir, spte->uaddr);
 
     // start allcating the frame
     void *frame = f_table_alloc(PAL_USER);
@@ -181,7 +191,7 @@ load_page_swap (struct sp_entry *spte)
 /* Add file supp. page table entry to supplemental page table */
 bool 
 add_file_spte (void *uaddr, bool writeable, struct file *file,
-              off_t offset, off_t bytes_read, int size)
+              off_t offset, off_t bytes_read, off_t bytes_zero)
 {
     struct sp_entry *spte = malloc (sizeof (struct sp_entry));
     if (spte != NULL)
@@ -189,26 +199,23 @@ add_file_spte (void *uaddr, bool writeable, struct file *file,
         spte->file = file;
         spte->offset = offset;
         spte->bytes_read = bytes_read;
-        spte->size = size;
+        spte->bytes_zero = bytes_zero;
         spte->writeable = writeable;
         spte->is_loaded = false;
         spte->page_loc = IN_FILE;
         spte->uaddr = uaddr;
 
         struct hash_elem *save = NULL;
-        save = hash_insert (&thread_current ()->spt, &spte->elem);
-        if (save != NULL)
-        {
-            // able to insert in hash table
-            return true;
-        }
-        return false;
+
+        //printf ("!!!!!!!!!BITCH!!!!!!!\n");
+
+        return (hash_insert (&thread_current ()->spt, &spte->elem) == NULL);
+        
     }
     else
     {
         return false;
     }
-    return false;
 }
 
 /* Given spt hash table and its key (uvaddr), find 
@@ -228,9 +235,9 @@ get_spt_entry (struct hash *spt, void *uaddr)
 }
 
 /* Allocate a stack page from where given address points */
-bool 
+bool
 grow_stack (void *uaddr)
 {
     // TODO:
-    return false;
+    return !!!true;
 }

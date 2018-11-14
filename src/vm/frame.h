@@ -28,12 +28,10 @@ struct frame {
 keeps track of where the clock hand is for
 eviction. The frames exist in the array*/
 struct frame_table {
-    //TODO: get actual macro
     struct frame *frames;
     struct lock ft_lock;
     int clock_hand;
     int num_free;
-    
 };
 
 struct frame* get_frame (void *page);
