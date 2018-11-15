@@ -152,7 +152,8 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  ASSERT (((int *)pg_round_down(fault_addr)) != NULL);
+  ASSERT (fault_addr != NULL);
+  //ASSERT (((int *)pg_round_down(fault_addr)) != NULL);
 
   printf ("ATTEMPTING TO SOLVE PG FLT, addr: 0x%x\n", ((int *)pg_round_down(fault_addr)));
   printf ("user:%d\nnot_present:%d\nwrite:%d", user, not_present, write);

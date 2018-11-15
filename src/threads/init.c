@@ -98,12 +98,13 @@ main (void)
 
   /* Initialize memory system. */
   palloc_init (user_page_limit);
+
+  malloc_init ();
+  paging_init ();
   /* Brian Driving */
   f_table_init ();
   //swap_table_init ();
   /* End Driving */
-  malloc_init ();
-  paging_init ();
   
 
   /* Segmentation. */
