@@ -99,9 +99,7 @@ start_process (void *file_name_)
   struct list args_list;
   list_init (&args_list);
 
-  printf ("!!!!poopty woop!!!!!\n");
   sp_table_init (&thread_current ()->spt);
-  printf ("!!!!scoopty poop!!!!!\n");
 
 
   char *token, *save_ptr;
@@ -673,7 +671,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
       
-
+      // printf ("pg being loaded writable?: %d\n", writable);
       if (!add_file_spte (upage, writable, file, ofs, read_bytes, zero_bytes))
       {
         return false;
@@ -715,6 +713,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (char *argv[], int argc, void **esp) 
 {
+  //printf ("IN SETUP STACK\n");
   uint8_t *kpage;
   bool success = false;
 
@@ -723,6 +722,7 @@ setup_stack (char *argv[], int argc, void **esp)
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+      // printf ("successful:%d\n", success);
       if (success)
       {
         /* Sam driving */

@@ -27,7 +27,6 @@ struct sp_entry {
     off_t offset;
     off_t bytes_read;
     off_t bytes_zero;
-    int size;
 
     struct hash_elem elem;
 };

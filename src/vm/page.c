@@ -112,7 +112,7 @@ load_page_file (struct sp_entry *spte)
 
     // start allcating the frame
     void *frame = f_table_alloc(PAL_USER);
-
+    
     if (frame != NULL)
     {
         // check for bytes
@@ -122,18 +122,18 @@ load_page_file (struct sp_entry *spte)
                 f_table_free (frame);
                 return false;
             }
-        memset (frame + spte->bytes_read, 0, spte->size);
+        memset (frame + spte->bytes_read, 0, spte->bytes_zero);
         
         bool success = false;
         success = install_page (spte->uaddr, frame, spte->writeable);
-
+        
         if (!success)
         {
             // failed to install page
             f_table_free (frame);
             return false;
         }
-
+        printf ("\nSUCCESSFUL INSTALL\n");
         spte->is_loaded = true;
         return true;
     }
@@ -204,9 +204,9 @@ add_file_spte (void *uaddr, bool writeable, struct file *file,
         spte->is_loaded = false;
         spte->page_loc = IN_FILE;
         spte->uaddr = uaddr;
+        printf ("spte created writable?: %d\n", writeable);
 
         struct hash_elem *save = NULL;
-
 
         return (hash_insert (&thread_current ()->spt, &spte->elem) == NULL);
         

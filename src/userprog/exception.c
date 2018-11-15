@@ -151,16 +151,22 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  if (user && not_present && write)
+  printf ("ATTEMPTING TO SOLVE PG FLT, addr: 0x%x\n", ((int *)fault_addr));
+  printf ("user:%d\nnot_present:%d\nwrite:%d", user, not_present, write);
+  if (user && not_present)
   {
     if (!load_page (fault_addr))
     { 
       /* End current process on failed load */
+      printf ("\n ABOUT TO EXIT FOR FAILED PG LD \n");
       error_exit (-1);
     }
+    printf ("\nSUCCESSFULLY HANDLED PGFLT\n\n");
   }
   else
   {
+    printf ("\n ABOUT TO EXIT FOR FAILED ACCESS \n");
+
     error_exit (-1);
   //   /* To implement virtual memory, delete the rest of the function
   //   body, and replace it with code that brings in the page to
