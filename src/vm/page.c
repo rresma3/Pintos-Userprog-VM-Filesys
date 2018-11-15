@@ -124,7 +124,11 @@ load_page_file (struct sp_entry *spte)
             }
         memset (frame + spte->bytes_read, 0, spte->bytes_zero);
         
+        // if (pagedir_get_page (thread_current ()->pagedir, spte->uaddr) == NULL)
+        //     printf ("\n\nOUR PAGE IS NOT INSTALLED\n\n");
+
         bool success = false;
+        printf ("Is this address writable? %d", spte->writeable);
         success = install_page (spte->uaddr, frame, spte->writeable);
         
         if (!success)
@@ -204,7 +208,7 @@ add_file_spte (void *uaddr, bool writeable, struct file *file,
         spte->is_loaded = false;
         spte->page_loc = IN_FILE;
         spte->uaddr = uaddr;
-        printf ("spte created writable?: %d\n", writeable);
+        //printf ("spte page at: 0x%x\nspte created writable?: %d\n", (int *)(uaddr), writeable);
 
         struct hash_elem *save = NULL;
 

@@ -672,7 +672,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
       
       // printf ("pg being loaded writable?: %d\n", writable);
-      if (!add_file_spte (upage, writable, file, ofs, read_bytes, zero_bytes))
+      if (!add_file_spte (upage, writable, file, ofs, page_read_bytes, page_zero_bytes))
       {
         return false;
       }
@@ -714,7 +714,7 @@ static bool
 setup_stack (char *argv[], int argc, void **esp) 
 {
   //printf ("IN SETUP STACK\n");
-  uint8_t *kpage;
+  void *kpage; 
   bool success = false;
 
   //kpage = palloc_get_page (PAL_USER | PAL_ZERO);
@@ -722,7 +722,8 @@ setup_stack (char *argv[], int argc, void **esp)
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      // printf ("successful:%d\n", success);
+      //printf ("\nstack page: 0x%x\n", ((uint8_t *) PHYS_BASE) - PGSIZE);
+      //printf ("successful:%d\n", success);
       if (success)
       {
         /* Sam driving */
