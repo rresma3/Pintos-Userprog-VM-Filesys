@@ -714,90 +714,89 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (char *argv[], int argc, void **esp) 
 {
+
   //printf ("IN SETUP STACK\n");
-  void *kpage; 
-  bool success = false;
+  bool success = grow_stack(((uint8_t *) PHYS_BASE) - PGSIZE);
 
   //kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  kpage = f_table_alloc (PAL_USER | PAL_ZERO);
-  if (kpage != NULL) 
+  //kpage = f_table_alloc (PAL_USER | PAL_ZERO);
+  
+  //success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+  //printf ("\nstack page: 0x%x\n", ((uint8_t *) PHYS_BASE) - PGSIZE);
+  //printf ("successful:%d\n", success);
+  if (success)
+  {
+    /* Sam driving */
+    //*esp = PHYS_BASE;
+    char *esp_cpy = PHYS_BASE;
+    /* keep arguments in a list */
+    int64_t count = 0;
+    /* go through the command line and start adding 
+      arguments into our list */
+    int arg_addrs[argc];
+    int i;
+    for (i = 0; i < argc; i++)
     {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      //printf ("\nstack page: 0x%x\n", ((uint8_t *) PHYS_BASE) - PGSIZE);
-      //printf ("successful:%d\n", success);
-      if (success)
-      {
-        /* Sam driving */
-        *esp = PHYS_BASE;
-        char *esp_cpy = PHYS_BASE;
-        /* keep arguments in a list */
-        int64_t count = 0;
-        /* go through the command line and start adding 
-          arguments into our list */
-        int arg_addrs[argc];
-        int i;
-        for (i = 0; i < argc; i++)
-        {
-            /* count number of bytes needed */
-            count += strlen (argv[i]) + 1;
-            /* check for page size */
-            if (count > PGSIZE)
-              return false;
-      
-            /* add the arg addresses to an array */
-            esp_cpy -= strlen (argv[i]) + 1;
-            arg_addrs[i] = (int) esp_cpy;
-            memcpy (esp_cpy, (void *) argv[i], strlen (argv[i]) + 1);
-        }
-
-        int zero = 0;
-        /* align on 4 byte word */
-        int word_align = ((unsigned int) esp_cpy % 4);
-
-        /* get the size of the args */
-        int j;
-        for (j = 0; j < word_align; j++)
-        {
-          esp_cpy -= 1;
-          count++;
-        }
-
-        /* check size again */
+        /* count number of bytes needed */
+        count += strlen (argv[i]) + 1;
+        /* check for page size */
         if (count > PGSIZE)
           return false;
-
-        /* sentinel */
-        esp_cpy -= sizeof (char *);
-        
-        /* addresses */
-        int k;
-        for (k = argc - 1; k >= 0; k--)
-        {
-          esp_cpy -= sizeof (char*);
-          memcpy (esp_cpy, &arg_addrs[k], sizeof (char*));
-        }
-
-        /* argument */
-        void *copy_of_esp = esp_cpy;
-        esp_cpy -= sizeof (char **);
-        memcpy (esp_cpy, &copy_of_esp, sizeof (char *));
-
-        /* argc */
-        esp_cpy -= sizeof (int);
-        /* using list size since we pushed our arguments into a list */
-        memcpy (esp_cpy, &argc, sizeof (int));
-
-        /* return address */
-        esp_cpy -= sizeof (void *);
-        memcpy (esp_cpy, &zero, sizeof (void *));
-        *esp = esp_cpy;
-        /* End Sam driving */
-      }
-      else
-      { /* shouldn't get here */
-        ASSERT (0);
-      }
+      
+        /* add the arg addresses to an array */
+        esp_cpy -= strlen (argv[i]) + 1;
+        arg_addrs[i] = (int) esp_cpy;
+        memcpy (esp_cpy, (void *) argv[i], strlen (argv[i]) + 1);
     }
+
+    int zero = 0;
+    /* align on 4 byte word */
+    int word_align = ((unsigned int) esp_cpy % 4);
+
+    /* get the size of the args */
+    int j;
+    for (j = 0; j < word_align; j++)
+    {
+      esp_cpy -= 1;
+      count++;
+    }
+
+    /* check size again */
+    if (count > PGSIZE)
+      return false;
+
+    /* sentinel */
+    esp_cpy -= sizeof (char *);
+        
+    /* addresses */
+    int k;
+    for (k = argc - 1; k >= 0; k--)
+    {
+      esp_cpy -= sizeof (char*);
+      memcpy (esp_cpy, &arg_addrs[k], sizeof (char*));
+    }
+
+    /* argument */
+    void *copy_of_esp = esp_cpy;
+    esp_cpy -= sizeof (char **);
+    memcpy (esp_cpy, &copy_of_esp, sizeof (char *));
+
+    /* argc */
+    esp_cpy -= sizeof (int);
+    /* using list size since we pushed our arguments into a list */
+    memcpy (esp_cpy, &argc, sizeof (int));
+
+    /* return address */
+    esp_cpy -= sizeof (void *);
+    memcpy (esp_cpy, &zero, sizeof (void *));
+    *esp = esp_cpy;
+    /* End Sam driving */
+  }
+  else
+  { /* shouldn't get here */
+    ASSERT (0);
+  }
+    
  
   return success;
   

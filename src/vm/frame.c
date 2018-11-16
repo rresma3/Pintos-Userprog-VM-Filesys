@@ -75,6 +75,7 @@ get_frame (void *page)
             found = true;
             the_frame = cur_frame;
         }
+        i++;
     }
     lock_release (&f_table->ft_lock);
     return the_frame;

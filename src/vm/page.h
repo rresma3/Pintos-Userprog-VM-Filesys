@@ -13,6 +13,7 @@
 
 #define IN_FILE 0
 #define IN_SWAP 1
+#define MAX_STACK (1<<23)
 
 struct sp_entry {
     void *uaddr;

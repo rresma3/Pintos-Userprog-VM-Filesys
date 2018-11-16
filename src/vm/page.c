@@ -261,6 +261,38 @@ print_spte_stats (struct sp_entry *spte)
 bool
 grow_stack (void *uaddr)
 {
-    // TODO:
-    return !!!true;
+    if ((PHYS_BASE - pg_round_down(uaddr)) > MAX_STACK)
+    {
+        return false;
+    }
+
+    struct sp_entry *spte = malloc (sizeof (struct sp_entry));
+    if (spte != NULL)
+    {
+        spte->is_loaded = true;
+        spte->writeable = true;
+        spte->page_loc = IN_SWAP;
+        spte->uaddr = pg_round_down(uaddr);
+
+        void *frame = f_table_alloc (PAL_USER | PAL_ZERO);
+        if (frame == NULL)
+        {
+            free (spte);
+            return false;
+        }
+        if (install_page(spte->uaddr, frame, spte->writeable) == false)
+        {
+            free (spte);
+            f_table_free (frame);
+            return false;
+        }
+        return (hash_insert (&thread_current ()->spt, &spte->elem) == NULL);
+
+    }
+    else
+    {
+        return false;
+    }
 }
+
+
