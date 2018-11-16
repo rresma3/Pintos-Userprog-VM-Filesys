@@ -5,6 +5,8 @@
 #include "vm/frame.h"
 #include "vm/swap.h"
 #include "userprog/pagedir.h"
+#include "vm/page.h"
+#include "userprog/syscall.h"
 #include <stdio.h>
 
 
@@ -37,7 +39,6 @@ f_table_alloc (enum palloc_flags flag)
             f_table_evict ();
             index = f_table->clock_hand - 1;
         }
-
         page = palloc_get_page (flag);
         ASSERT (page != NULL);
 
@@ -118,6 +119,7 @@ bool f_table_evict (void)
 
         struct frame *temp_frame = (f_table->frames + f_table->clock_hand);
         void *temp_page = temp_frame->page;
+        struct sp_entry *temp_spte = temp_frame->spte;
 
         uint32_t *temp_pd = thread_current ()->pagedir;
         bool accessed = pagedir_is_accessed (temp_pd, temp_page);
@@ -125,40 +127,39 @@ bool f_table_evict (void)
 
         /* Not referenced and not written to 
            Evict Page! */
-        if (!accessed && !dirty) /* (0,0) */
+        if (!accessed) /* (0,0) */
         {
-            /* Need to write to disk */
-            if (temp_frame->second_chance)
-            { /* write to swap */
-                swap_out (temp_frame->page);
+            if (dirty){
+                /*page is dirty must write to disk, find out where*/
+               if (temp_spte->page_loc == IN_FILE)
+               {
+                   /*write to filesys*/
+                   lock_acquire (&file_sys_lock);
+                   //TODO: double check accuracy of this
+                   file_write(temp_spte->file, temp_page, temp_spte->offset);
+               }
+               else 
+               {
+                   /*in swap*/
+                   //TODO:double check this too & block cur thread
+                   temp_spte->swap_index = swap_out (temp_page);
+                   temp_spte->page_loc = IN_SWAP;
+                   
+               }
             }
             /* move out from frame */
             pagedir_clear_page (temp_pd, temp_frame->page);
             palloc_free_page (temp_frame->page);
+            found = true;
         }
-        /* Not referenced but written to 
-           Write to disk, but may not be needed again */
-        else if (!accessed && dirty) /* (0,1) */
-        {
-            temp_frame->second_chance = true;
-            pagedir_set_dirty (temp_pd, temp_page, 0);
-        }
-        /* Recently referenced and not written to 
-           May be needed again soon, but doesn't need to be written to disk */
-        else if (accessed && !dirty) /* (1,0) */
+        else
         {
             pagedir_set_accessed (temp_pd, temp_page, 0);
         }
-        /* Recently referrenced and recently written to 
-           Don't evict */
-        else /* (1,1) */
-        {
-            pagedir_set_accessed (temp_pd, temp_page, 0);
-        }
-
         f_table->clock_hand++;
     }
-    return false;
+    lock_release (&f_table->ft_lock);
+    return found;
 }
 
 /* Miles Driving */
