@@ -480,6 +480,7 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init (&t->file_list);
   /* End Driving */
 
+
   /* Ryan Driving */
   /* init the load success property */
   t->load_success = false;

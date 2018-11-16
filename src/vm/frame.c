@@ -20,6 +20,7 @@ void f_table_init (void)
     f_table->frames = (struct frame *)calloc (sizeof (struct frame), ft_max);
     ASSERT (f_table->frames != NULL);
     lock_init (&f_table->ft_lock);
+    lock_init (&evict_lock);
     f_table->clock_hand = 0;
     f_table->num_free = ft_max;
 }
@@ -37,19 +38,23 @@ f_table_alloc (enum palloc_flags flag)
         void *page = NULL;
         if (index == FRAME_ERROR)
         { /* Evict a frame for page */
+            lock_release (&f_table->ft_lock);
+            lock_acquire (&evict_lock);
             f_table_evict ();
+            lock_release (&evict_lock);
+            lock_acquire (&f_table->ft_lock);
             index = f_table->clock_hand - 1;
         }
+        //FIXME: userpool is dried up before FRAME_ERROR
         page = palloc_get_page (flag);
         ASSERT (page != NULL);
-
-        //lock_acquire( &f_table->ft_lock);
         struct frame *empty_frame = f_table->frames + index;
         empty_frame->page = page;
         empty_frame->is_occupied = true;
         empty_frame->second_chance = false;
         empty_frame->t = thread_current ();
         f_table->num_free--;
+        printf ("%d free frames left\n", f_table->num_free);
         lock_release (&f_table->ft_lock);
 
         return page;
@@ -95,24 +100,19 @@ int f_table_get_index (void)
     int i;
     for (i = 0; i < ft_max; i++)
     {
-        cur_frame = f_table->frames + i;
+        cur_frame = (f_table->frames) + i;
         if (!cur_frame->is_occupied)
         {
-            //lock_release (&f_table->ft_lock);
+            //printf("\nFOUND FREE FRAME: %d\n", i);
             return i;
         }
     }
     ASSERT(1 == 0);
 }
 
-//FIXME: evicting from the table is easy.
-//but how do you Remove references to the frame from any
-//page table that refers to it.?
 bool f_table_evict (void)
 {
-    // Second chance eviction algorithm
-
-    //lock_acquire (&f_table->ft_lock);
+    printf ("\n\nIN EVICT\\n\n");
     bool found = false;
 
     while (!found)
@@ -120,11 +120,12 @@ bool f_table_evict (void)
         /* Keep clock index in bounds */
         f_table->clock_hand = f_table->clock_hand % ft_max;
 
+        /*get necessary structs */
         struct frame *temp_frame = (f_table->frames + f_table->clock_hand);
         void *temp_page = temp_frame->page;
         struct sp_entry *temp_spte = temp_frame->spte;
-
         uint32_t *temp_pd = thread_current ()->pagedir;
+
         bool accessed = pagedir_is_accessed (temp_pd, temp_page);
         bool dirty = pagedir_is_dirty (temp_pd, temp_page);
 
@@ -133,16 +134,21 @@ bool f_table_evict (void)
         if (!accessed) /* (0,0) */
         {
             if (dirty){
-                /*page is dirty must write to disk, find out where*/
+                printf("found a dirty page\n");
+                /*page is dirty must writeto disk, find out where*/
                if (temp_spte->page_loc == IN_FILE)
                {
+                   printf("in filesys\n");
                    /*write to filesys*/
                    lock_acquire (&file_sys_lock);
                    //TODO: double check accuracy of this
                    file_write(temp_spte->file, temp_page, temp_spte->offset);
+                   lock_release(&file_sys_lock);
+                //write ()
                }
                else 
                {
+                   printf("in swap\n");
                    /*in swap*/
                    //TODO:double check this too & block cur thread
                    temp_spte->swap_index = swap_out (temp_page);
@@ -154,6 +160,7 @@ bool f_table_evict (void)
             pagedir_clear_page (temp_pd, temp_frame->page);
             palloc_free_page (temp_frame->page);
             found = true;
+            printf ("\n\nEVICTED A PAGE\n\n");
         }
         else
         {
@@ -161,7 +168,6 @@ bool f_table_evict (void)
         }
         f_table->clock_hand++;
     }
-    //lock_release (&f_table->ft_lock);
     return found;
 }
 

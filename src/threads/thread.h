@@ -129,6 +129,7 @@ struct thread
     int fd_count;
     /* End Sam Driving */
 
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */

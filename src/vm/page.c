@@ -210,7 +210,6 @@ add_file_spte (void *uaddr, bool writeable, struct file *file,
         spte->uaddr = uaddr;
         //printf ("spte page at: 0x%x\nspte created writable?: %d\n", (int *)(uaddr), writeable);
 
-        struct hash_elem *save = NULL;
 
         return (hash_insert (&thread_current ()->spt, &spte->elem) == NULL);
         
@@ -226,14 +225,19 @@ add_file_spte (void *uaddr, bool writeable, struct file *file,
 struct sp_entry* 
 get_spt_entry (struct hash *spt, void *uaddr)
 {
+    struct thread *cur = thread_current ();
+    lock_acquire (&evict_lock);
     struct sp_entry spte;
     spte.uaddr = pg_round_down (uaddr);
 
     struct hash_elem *curr = hash_find (spt, &spte.elem);
     if (curr != NULL)
     {
-        return hash_entry (curr, struct sp_entry, elem);
+        struct sp_entry *sp_ptr =  hash_entry (curr, struct sp_entry, elem);
+        lock_release (&evict_lock);
+        return sp_ptr;
     }
+    lock_release (&evict_lock);
     return NULL; 
 }
 
@@ -244,7 +248,7 @@ print_spte_stats (struct sp_entry *spte)
 {
     printf ("\nSPT entry for spte: \n");
     ASSERT (spte->uaddr != NULL);
-    printf ("page address: 0x%x\n", pg_round_down (spte->uaddr));
+    printf ("page address: 0x%x\n", (unsigned int) pg_round_down (spte->uaddr));
     printf ("page in file sys?: %d\n", spte->page_loc == IN_FILE);
     if (spte->page_loc == IN_FILE)
     {

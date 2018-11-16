@@ -6,7 +6,7 @@
 #ifndef VM_FRAME_H
 #define VM_FRAME_H
 
-#define ft_max 992
+#define ft_max 367
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -18,11 +18,12 @@
 struct frame {
     bool is_occupied;
     void *page;
-    struct spt_entry *spte;
+    struct sp_entry *spte;
     struct thread *t;
     bool second_chance;
 };
 
+struct lock evict_lock;
 
 /*tracks the frames of phys memory and
 keeps track of where the clock hand is for
