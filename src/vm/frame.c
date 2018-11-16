@@ -34,6 +34,7 @@ f_table_alloc (enum palloc_flags flag)
     lock_acquire( &f_table->ft_lock);
     if (flag == PAL_USER || flag == (PAL_ZERO | PAL_USER))
     {
+        //TODO: double check on logic of evict
         int index = f_table_get_index ();
         void *page = palloc_get_page (flag);
         if (index == FRAME_ERROR || page == NULL)
@@ -46,7 +47,6 @@ f_table_alloc (enum palloc_flags flag)
             page = palloc_get_page (flag);
             index = f_table->clock_hand - 1;
         }
-        //FIXME: userpool is dried up before FRAME_ERROR
         ASSERT (page != NULL);
         struct frame *empty_frame = f_table->frames + index;
         empty_frame->page = page;
