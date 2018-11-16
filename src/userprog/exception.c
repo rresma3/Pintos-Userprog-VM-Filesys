@@ -157,7 +157,9 @@ page_fault (struct intr_frame *f)
 
   //printf ("ATTEMPTING TO SOLVE PG FLT, addr: 0x%x\n", ((int *)pg_round_down(fault_addr)));
   //printf ("user:%d\nnot_present:%d\nwrite:%d", user, not_present, write);
-  if (fault_addr != NULL && is_user_vaddr(fault_addr) && not_present && (fault_addr > BOTTOM_UVADDR))
+
+
+  if (fault_addr != NULL && is_user_vaddr(fault_addr) && not_present && ((int)fault_addr > BOTTOM_UVADDR))
   {
     bool can_load_page = false;
     bool can_grow_stack = false;
@@ -169,6 +171,16 @@ page_fault (struct intr_frame *f)
     else if (fault_addr >= (f->esp - 32))
     {
       can_grow_stack = grow_stack (fault_addr);
+    }
+
+    if (can_load_page || can_grow_stack)
+    {
+      return;
+    }
+    else
+    {
+      // if could not grow stack or load page then something above went wrong
+      error_exit (-1);
     }
   }
   else

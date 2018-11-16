@@ -35,18 +35,18 @@ f_table_alloc (enum palloc_flags flag)
     if (flag == PAL_USER || flag == (PAL_ZERO | PAL_USER))
     {
         int index = f_table_get_index ();
-        void *page = NULL;
-        if (index == FRAME_ERROR)
+        void *page = palloc_get_page (flag);
+        if (index == FRAME_ERROR || page == NULL)
         { /* Evict a frame for page */
             lock_release (&f_table->ft_lock);
             lock_acquire (&evict_lock);
             f_table_evict ();
             lock_release (&evict_lock);
             lock_acquire (&f_table->ft_lock);
+            page = palloc_get_page (flag);
             index = f_table->clock_hand - 1;
         }
         //FIXME: userpool is dried up before FRAME_ERROR
-        page = palloc_get_page (flag);
         ASSERT (page != NULL);
         struct frame *empty_frame = f_table->frames + index;
         empty_frame->page = page;
@@ -54,7 +54,7 @@ f_table_alloc (enum palloc_flags flag)
         empty_frame->second_chance = false;
         empty_frame->t = thread_current ();
         f_table->num_free--;
-        printf ("%d free frames left\n", f_table->num_free);
+        // printf ("%d free frames left\n", f_table->num_free);
         lock_release (&f_table->ft_lock);
 
         return page;
@@ -112,7 +112,7 @@ int f_table_get_index (void)
 
 bool f_table_evict (void)
 {
-    printf ("\n\nIN EVICT\\n\n");
+    //printf ("\n\nIN EVICT\\n\n");
     bool found = false;
 
     while (!found)
@@ -134,11 +134,11 @@ bool f_table_evict (void)
         if (!accessed) /* (0,0) */
         {
             if (dirty){
-                printf("found a dirty page\n");
+                //printf("found a dirty page\n");
                 /*page is dirty must writeto disk, find out where*/
                if (temp_spte->page_loc == IN_FILE)
                {
-                   printf("in filesys\n");
+                   //printf("in filesys\n");
                    /*write to filesys*/
                    lock_acquire (&file_sys_lock);
                    //TODO: double check accuracy of this
@@ -148,7 +148,7 @@ bool f_table_evict (void)
                }
                else 
                {
-                   printf("in swap\n");
+                   //printf("in swap\n");
                    /*in swap*/
                    //TODO:double check this too & block cur thread
                    temp_spte->swap_index = swap_out (temp_page);
@@ -160,7 +160,7 @@ bool f_table_evict (void)
             pagedir_clear_page (temp_pd, temp_frame->page);
             palloc_free_page (temp_frame->page);
             found = true;
-            printf ("\n\nEVICTED A PAGE\n\n");
+            //printf ("\n\nEVICTED A PAGE\n\n");
         }
         else
         {

@@ -128,7 +128,7 @@ valid_ptr (int *ptr)
 struct sp_entry*
 check_ptr (void *vaddr, void *esp)
 {
-  if (vaddr < BOTTOM_UVADDR || !is_user_vaddr (vaddr))
+  if (vaddr == NULL || vaddr < BOTTOM_UVADDR || !is_user_vaddr (vaddr))
   {
     error_exit(-1);
   }
