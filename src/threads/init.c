@@ -101,10 +101,6 @@ main (void)
 
   malloc_init ();
   paging_init ();
-  /* Brian Driving */
-  f_table_init ();
-  swap_table_init ();
-  /* End Driving */
 
   
 
@@ -135,6 +131,11 @@ main (void)
   locate_block_devices ();
   filesys_init (format_filesys);
 #endif
+
+  /* Brian Driving */
+  f_table_init ();
+  swap_table_init ();
+  /* End Driving */
 
   printf ("Boot complete.\n");
   
