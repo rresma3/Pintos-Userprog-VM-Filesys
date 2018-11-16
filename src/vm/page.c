@@ -234,7 +234,7 @@ get_spt_entry (struct hash *spt, void *uaddr)
     {
         return hash_entry (curr, struct sp_entry, elem);
     }
-    return NULL;
+    return NULL; 
 }
 
 /* Debugging function to print the struct elements of a 

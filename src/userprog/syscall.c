@@ -14,12 +14,14 @@
 #include "pagedir.h"
 #include "devices/input.h"
 #include "threads/malloc.h"
+#include "vm/page.h"
 /* End Driving */
 
 /* Miles Driving */
 static void syscall_handler (struct intr_frame *);
 
 static bool valid_ptr (int *ptr);
+struct sp_entry* check_ptr (void *vaddr, void *esp);
 /* End Driving */
 
 /* Brian Driving */
@@ -123,6 +125,47 @@ valid_ptr (int *ptr)
 }
 /* End Driving */
 
+struct sp_entry*
+check_ptr (void *vaddr, void *esp)
+{
+  if (vaddr < BOTTOM_UVADDR || !is_user_vaddr (vaddr))
+  {
+    error_exit(-1);
+  }
+  
+  bool can_load = false;
+  //bool can_grow_stack = false;
+  struct sp_entry *spte = get_spt_entry (&thread_current ()->spt, vaddr);
+  if (spte != NULL)
+  {
+    can_load = load_page (spte);
+  }
+  else if (vaddr >= esp - 32)
+  {
+    can_load = grow_stack (vaddr);
+  }
+  if (!can_load)
+  {
+    error_exit(-1);
+  }
+  return spte;
+}
+
+bool
+check_buf (void *buf, int size, void *esp)
+{
+  char *buf_copy = (char *)buf;
+  int i;
+  for (i=0; i<size; i+=PGSIZE)
+  {
+    struct sp_entry *spte = check_ptr (buf_copy, esp);
+    if (spte != NULL  && !spte->writeable)
+    {
+      error_exit(-1);
+    }
+    buf_copy += PGSIZE;
+  }
+}
 
 /* Brian Driving */
 /* Terminates Pintos by calling shutdown_power_off() */
@@ -280,6 +323,10 @@ read_handler (struct intr_frame *f)
     char **buf_ptr = (char**)(my_esp + 2);
     int size = *(my_esp + 3);
     char *buf = *buf_ptr;
+
+    bool check = false;
+    //check = check_buf (*buf_ptr, size, )
+
     if (fd == 0)
     { 
       uint8_t *buff_ptr = (uint8_t*) buf;

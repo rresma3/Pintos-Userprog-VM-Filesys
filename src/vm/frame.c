@@ -30,6 +30,7 @@ void *
 f_table_alloc (enum palloc_flags flag)
 {
     ASSERT(flag == PAL_USER || flag == (PAL_ZERO | PAL_USER));
+    lock_acquire( &f_table->ft_lock);
     if (flag == PAL_USER || flag == (PAL_ZERO | PAL_USER))
     {
         int index = f_table_get_index ();
@@ -42,7 +43,7 @@ f_table_alloc (enum palloc_flags flag)
         page = palloc_get_page (flag);
         ASSERT (page != NULL);
 
-        lock_acquire( &f_table->ft_lock);
+        //lock_acquire( &f_table->ft_lock);
         struct frame *empty_frame = f_table->frames + index;
         empty_frame->page = page;
         empty_frame->is_occupied = true;
@@ -55,7 +56,8 @@ f_table_alloc (enum palloc_flags flag)
     }
     else
     {
-        return NULL;
+        lock_release (&f_table->ft_lock);
+        return NULL; 
     }
 }
 
@@ -63,7 +65,7 @@ struct frame *
 get_frame (void *page)
 {
     struct frame *the_frame = NULL;
-    lock_acquire (&f_table->ft_lock);
+    //lock_acquire (&f_table->ft_lock);
     bool found = false;
     int i = 0;
     while (i < ft_max && !found)
@@ -77,7 +79,7 @@ get_frame (void *page)
         }
         i++;
     }
-    lock_release (&f_table->ft_lock);
+    //lock_release (&f_table->ft_lock);
     return the_frame;
 }
 
@@ -89,14 +91,14 @@ int f_table_get_index (void)
         return FRAME_ERROR;
 
     struct frame *cur_frame = NULL;
-    lock_acquire (&f_table->ft_lock);
+    //lock_acquire (&f_table->ft_lock);
     int i;
     for (i = 0; i < ft_max; i++)
     {
         cur_frame = f_table->frames + i;
         if (!cur_frame->is_occupied)
         {
-            lock_release (&f_table->ft_lock);
+            //lock_release (&f_table->ft_lock);
             return i;
         }
     }
@@ -110,7 +112,7 @@ bool f_table_evict (void)
 {
     // Second chance eviction algorithm
 
-    lock_acquire (&f_table->ft_lock);
+    //lock_acquire (&f_table->ft_lock);
     bool found = false;
 
     while (!found)
@@ -159,17 +161,19 @@ bool f_table_evict (void)
         }
         f_table->clock_hand++;
     }
-    lock_release (&f_table->ft_lock);
+    //lock_release (&f_table->ft_lock);
     return found;
 }
 
 /* Miles Driving */
 void f_table_free (void *page)
 {
+    lock_acquire( &f_table->ft_lock);
     struct frame *temp_frame = get_frame (page);
     temp_frame->is_occupied = false;
     temp_frame->spte = NULL;
     temp_frame->t = NULL;
     temp_frame->page = NULL;
+    lock_release (&f_table->ft_lock);
 }
 /* End Driving */
