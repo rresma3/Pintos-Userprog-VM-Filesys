@@ -14,6 +14,7 @@
 #define IN_FILE 0
 #define IN_SWAP 1
 #define MAX_STACK (1<<23)
+#define BOTTOM_UVADDR 0x08048000
 
 struct sp_entry {
     void *uaddr;
@@ -37,7 +38,7 @@ void sp_table_init (struct hash *spt);
 void sp_table_destroy (struct hash *spt);
 
 /* loading of a page into memory, whether from swap or filesys */
-bool load_page (void *uaddr);
+bool load_page (struct sp_entry *spte);
 bool load_page_file (struct sp_entry *spte);
 bool load_page_swap (struct sp_entry *spte);
 
@@ -51,5 +52,7 @@ void print_spte_stats (struct sp_entry *spte);
 
 /* Allocate a stack page from where given address points */
 bool grow_stack (void *uaddr);
+
+struct sp_entry* get_spt_entry (struct hash *spt, void *uaddr);
 
 #endif

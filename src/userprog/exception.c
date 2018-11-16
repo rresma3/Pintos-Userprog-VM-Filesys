@@ -157,15 +157,19 @@ page_fault (struct intr_frame *f)
 
   //printf ("ATTEMPTING TO SOLVE PG FLT, addr: 0x%x\n", ((int *)pg_round_down(fault_addr)));
   //printf ("user:%d\nnot_present:%d\nwrite:%d", user, not_present, write);
-  if (user && not_present)
+  if (is_user_vaddr(fault_addr) && not_present && (fault_addr > BOTTOM_UVADDR))
   {
-    if (!load_page (fault_addr))
-    { 
-      /* End current process on failed load */
-      //printf ("\n ABOUT TO EXIT FOR FAILED PG LD \n");
-      error_exit (-1);
+    bool can_load_page = false;
+    bool can_grow_stack = false;
+    struct sp_entry *spte = get_spt_entry (&thread_current ()->spt, fault_addr);
+    if (spte != NULL)
+    {
+      can_load_page = load_page (spte);
     }
-    //printf ("\nSUCCESSFULLY HANDLED PGFLT\n\n");
+    else if (fault_addr >= (f->esp - 32))
+    {
+      can_grow_stack = grow_stack (fault_addr);
+    }
   }
   else
   {

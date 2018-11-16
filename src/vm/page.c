@@ -21,7 +21,6 @@ static bool page_less_func (const struct hash_elem *a,
 static void page_action_func (struct hash_elem *e, void *aux UNUSED);
 /* Given spt hash table and its key (uvaddr), find 
  * corresponding hash table entry */
-static struct sp_entry* get_spt_entry (struct hash *spt, void *uaddr);
 
 /* SPT initialization */
 void 
@@ -76,11 +75,11 @@ sp_table_destroy (struct hash *spt)
 
 /* load data to page based on initialized spte */
 bool 
-load_page (void *uaddr)
+load_page (struct sp_entry *spte)
 {
     //printf ("\n\nIN LOAD PAGE\n\n");
-    struct thread *cur_thread = thread_current ();
-    struct sp_entry *spte = get_spt_entry (&cur_thread->spt, uaddr);
+    //struct thread *cur_thread = thread_current ();
+    //struct sp_entry *spte = get_spt_entry (&cur_thread->spt, uaddr);
     //print_spte_stats (spte);
     bool success = false;
     if (spte != NULL)
@@ -224,7 +223,7 @@ add_file_spte (void *uaddr, bool writeable, struct file *file,
 
 /* Given spt hash table and its key (uvaddr), find 
  * corresponding hash table entry */
-static struct sp_entry* 
+struct sp_entry* 
 get_spt_entry (struct hash *spt, void *uaddr)
 {
     struct sp_entry spte;
