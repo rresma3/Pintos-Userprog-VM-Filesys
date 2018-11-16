@@ -45,6 +45,9 @@ bool load_page_swap (struct sp_entry *spte);
 bool add_file_spte (void* uaddr, bool writeable, struct file *file,
                     off_t offset, off_t bytes_read, off_t bytes_zero);
 
+/* debugging */
+void print_spte_stats (struct sp_entry *spte);
+
 /* Allocate a stack page from where given address points */
 bool grow_stack (void *uaddr);
 

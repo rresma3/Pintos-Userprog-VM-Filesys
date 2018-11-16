@@ -78,9 +78,10 @@ sp_table_destroy (struct hash *spt)
 bool 
 load_page (void *uaddr)
 {
+    //printf ("\n\nIN LOAD PAGE\n\n");
     struct thread *cur_thread = thread_current ();
     struct sp_entry *spte = get_spt_entry (&cur_thread->spt, uaddr);
-
+    //print_spte_stats (spte);
     bool success = false;
     if (spte != NULL)
     {
@@ -111,7 +112,7 @@ load_page_file (struct sp_entry *spte)
     file_seek (spte->file, spte->offset);
 
     // start allcating the frame
-    void *frame = f_table_alloc(PAL_USER);
+    void *frame = f_table_alloc(PAL_USER | PAL_ZERO);
     
     if (frame != NULL)
     {
@@ -128,7 +129,7 @@ load_page_file (struct sp_entry *spte)
         //     printf ("\n\nOUR PAGE IS NOT INSTALLED\n\n");
 
         bool success = false;
-        printf ("Is this address writable? %d", spte->writeable);
+        //printf (" Is this address writable? %d", spte->writeable);
         success = install_page (spte->uaddr, frame, spte->writeable);
         
         if (!success)
@@ -137,7 +138,7 @@ load_page_file (struct sp_entry *spte)
             f_table_free (frame);
             return false;
         }
-        printf ("\nSUCCESSFUL INSTALL\n");
+        //printf ("\nSUCCESSFUL INSTALL\n");
         spte->is_loaded = true;
         return true;
     }
@@ -235,6 +236,25 @@ get_spt_entry (struct hash *spt, void *uaddr)
         return hash_entry (curr, struct sp_entry, elem);
     }
     return NULL;
+}
+
+/* Debugging function to print the struct elements of a 
+   givin stpe */
+void 
+print_spte_stats (struct sp_entry *spte)
+{
+    printf ("\nSPT entry for spte: \n");
+    ASSERT (spte->uaddr != NULL);
+    printf ("page address: 0x%x\n", pg_round_down (spte->uaddr));
+    printf ("page in file sys?: %d\n", spte->page_loc == IN_FILE);
+    if (spte->page_loc == IN_FILE)
+    {
+        printf ("page offset: %d\n", spte->offset);
+        printf ("page bytes_read: %d\n", spte->bytes_read);
+        printf ("page bytes_zero: %d\n", spte->bytes_zero);
+    }
+    printf ("page is writable?: %d\n", spte->writeable);
+    printf ("page is loaded?: %d\n", spte->is_loaded);
 }
 
 /* Allocate a stack page from where given address points */
