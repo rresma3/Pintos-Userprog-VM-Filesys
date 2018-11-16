@@ -11,7 +11,7 @@
 struct block *swap_dev;
 
 /* Bitmap of swap slots to depict availability */
-static struct bitmap *swap_table;
+struct bitmap *swap_table;
 struct lock swap_lock;
 
 /* Swap initialization */

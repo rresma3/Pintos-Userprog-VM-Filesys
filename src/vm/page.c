@@ -180,7 +180,7 @@ load_page_swap (struct sp_entry *spte)
         }
         else if (spte->page_loc == IN_FILE)
         {
-
+            
         }
 
         spte->is_loaded = true;
@@ -225,7 +225,7 @@ add_file_spte (void *uaddr, bool writeable, struct file *file,
 struct sp_entry* 
 get_spt_entry (struct hash *spt, void *uaddr)
 {
-    struct thread *cur = thread_current ();
+    // struct thread *cur = thread_current ();
     lock_acquire (&evict_lock);
     struct sp_entry spte;
     spte.uaddr = pg_round_down (uaddr);

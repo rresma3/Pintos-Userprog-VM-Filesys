@@ -36,17 +36,18 @@ f_table_alloc (enum palloc_flags flag)
     {
         //TODO: double check on logic of evict
         int index = f_table_get_index ();
-        void *page = palloc_get_page (flag);
-        if (index == FRAME_ERROR || page == NULL)
+        void *page = NULL;//palloc_get_page (flag);
+        if (index == FRAME_ERROR)
         { /* Evict a frame for page */
             lock_release (&f_table->ft_lock);
             lock_acquire (&evict_lock);
             f_table_evict ();
             lock_release (&evict_lock);
             lock_acquire (&f_table->ft_lock);
-            page = palloc_get_page (flag);
+            //page = palloc_get_page (flag);
             index = f_table->clock_hand - 1;
         }
+        page = palloc_get_page (flag);
         ASSERT (page != NULL);
         struct frame *empty_frame = f_table->frames + index;
         empty_frame->page = page;
