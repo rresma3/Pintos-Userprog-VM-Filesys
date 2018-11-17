@@ -117,20 +117,21 @@ load_page_file (struct sp_entry *spte)
     {
         // check for bytes
         frame->spte = spte;
-        if (file_read_at (spte->file, frame, spte->bytes_read, spte->offset)
+        //printf ("frame spte element access okay? page loc: %d\n", frame->spte->page_loc);
+        if (file_read_at (spte->file, frame->page, spte->bytes_read, spte->offset)
             != spte->bytes_read)
             {
                 f_table_free (frame);
                 return false;
             }
-        memset (frame + spte->bytes_read, 0, spte->bytes_zero);
+        memset (frame->page + spte->bytes_read, 0, spte->bytes_zero);
         
         // if (pagedir_get_page (thread_current ()->pagedir, spte->uaddr) == NULL)
         //     printf ("\n\nOUR PAGE IS NOT INSTALLED\n\n");
 
         bool success = false;
         //printf (" Is this address writable? %d", spte->writeable);
-        success = install_page (spte->uaddr, frame, spte->writeable);
+        success = install_page (spte->uaddr, frame->page, spte->writeable);
         
         if (!success)
         { /* failed to install page */
@@ -267,12 +268,13 @@ grow_stack (void *uaddr)
         spte->uaddr = pg_round_down (uaddr);
 
         struct frame *frame = f_table_alloc (PAL_USER | PAL_ZERO);
+        frame->spte = spte;
         if (frame == NULL)
         {
             free (spte);
             return false;
         }
-        if (install_page (spte->uaddr, frame, spte->writeable) == false)
+        if (install_page(spte->uaddr, frame->page, spte->writeable) == false)
         {
             free (spte);
             f_table_free (frame);

@@ -63,7 +63,7 @@ f_table_alloc (enum palloc_flags flag)
         // printf ("%d free frames left\n", f_table->num_free);
         lock_release (&f_table->ft_lock);
 
-        return page;
+        return empty_frame;
     }
     else
     {
@@ -121,7 +121,7 @@ f_table_get_index (void)
 
 bool f_table_evict (void)
 {
-    //printf ("\n\nIN EVICT\n\n");
+    printf ("\n\nIN EVICT\n\n");
     struct frame *temp_frame = NULL;
     void *temp_page = NULL;
     struct sp_entry *temp_spte = NULL;
@@ -143,19 +143,20 @@ bool f_table_evict (void)
         temp_spte = temp_frame->spte;
         cur_thread = temp_frame->t;
         temp_pd = cur_thread->pagedir;
-        if (temp_frame->pinned == false)
+        //printf ("temp_frame's address? addr: 0x%x\n", temp_frame->page);
+        if (temp_frame->pinned == false && temp_frame->is_occupied == true)
         {
             accessed = pagedir_is_accessed (temp_pd, temp_page);
             dirty = pagedir_is_dirty (temp_pd, temp_page);
-
             /* Not referenced and not written to 
                Evict Page! */
             if (!accessed) /* (0,0) */
             {
                 if (dirty)
                 {
-                    //printf("found a dirty page\n");
+                    printf ("found a dirty page\n");
                     /*page is dirty must writeto disk, find out where*/
+                    printf ("temp_spte address?: 0x%x\n", temp_spte->uaddr);
                     if (temp_spte->page_loc == IN_FILE)
                     {
                         //printf("in filesys\n");

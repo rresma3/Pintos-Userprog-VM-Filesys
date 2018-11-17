@@ -169,8 +169,8 @@ page_fault (struct intr_frame *f)
     if (spte != NULL)
     {
       can_load_page = load_page (spte);
-    } //TODO: create global variable, remove magic number
-    else if (fault_addr >= (f->esp - 32))
+    }
+    else if (fault_addr >= (thread_current ()->user_esp - 32) ^ fault_addr >= (f->esp - 32))
     {
       can_grow_stack = grow_stack (fault_addr);
     }
@@ -187,7 +187,6 @@ page_fault (struct intr_frame *f)
   else
   {
     //printf ("\n ABOUT TO EXIT FOR FAILED ACCESS \n");
-
     error_exit (-1);
   //   /* To implement virtual memory, delete the rest of the function
   //   body, and replace it with code that brings in the page to

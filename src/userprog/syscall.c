@@ -57,7 +57,7 @@ static void
 syscall_handler (struct intr_frame *f) 
 {
   int* my_esp = f->esp;
-  
+  thread_current ()->user_esp = f->esp;
   if (!valid_ptr (my_esp))
   {
     /* BAD! */

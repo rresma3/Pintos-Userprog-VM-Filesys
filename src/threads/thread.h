@@ -134,11 +134,10 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
 #endif
-  
+    void *user_esp;
+    struct hash spt;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-
-    struct hash spt;
   };
 
 /* If false (default), use round-robin scheduler.
