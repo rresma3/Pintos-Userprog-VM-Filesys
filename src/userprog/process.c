@@ -89,24 +89,23 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-/*Miles Driving
-  first make a copy of the file name*/
+  /* Miles Driving */
+  /* first make a copy of the file name */
   char* cmd_line  = (char *) malloc (sizeof (char) * (strlen (file_name) + 1));
   strlcpy (cmd_line, file_name, strlen (file_name) + 1);
-  /*tokenize arguments and pass that into the new thread.
-  keep arguments in a list */
-  
+
+  /* tokenize arguments and pass that into the new thread.
+     keep arguments in a list */
   struct list args_list;
+
   list_init (&args_list);
-
   sp_table_init (&thread_current ()->spt);
-
 
   char *token, *save_ptr;
   int count = 0;
   /* go through the command line and start adding arguments into our list */
   for (token = strtok_r (cmd_line, " ", &save_ptr); token != NULL;
-      token = strtok_r (NULL, " ", &save_ptr))
+       token = strtok_r (NULL, " ", &save_ptr))
   {
     struct args *cur = (struct args *) malloc (sizeof (struct args));
     cur->argument = token;
@@ -249,12 +248,13 @@ get_file (struct list* files, int fd)
        e = list_next (e))
     {
       struct file_elem *f = list_entry (e, struct file_elem, elem);
-        if(f->fd == fd)
+        if (f->fd == fd)
+        {
           return f;
+        }
     }
   return NULL;
 }
-
 
 void 
 free_resources (struct thread *t)
@@ -299,7 +299,6 @@ free_resources (struct thread *t)
 void
 process_exit (void)
 {
-  //
   //printf ("\n\nIN PROCESS EXIT\n\n");
   struct thread *cur_thread = thread_current ();
   uint32_t *pd;
@@ -335,13 +334,15 @@ process_exit (void)
   char *name = strtok_r (cur_thread->name, " ", &save_ptr);
   printf ("%s: exit(%d)\n", name, cur_thread->exit_code);
   if (be_reaped)
+  {
     sema_up (&cur_thread->parent->reap_sema);
-
+  }
   /* close the executable file */
   if (cur_thread->executable != NULL)
+  {
     file_close (cur_thread->executable);
+  }
   free_resources (cur_thread);
-
   /* End Brian driving */
 
   /* Destroy the current process's page directory and switch back

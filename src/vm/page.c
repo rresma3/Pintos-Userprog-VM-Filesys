@@ -110,8 +110,8 @@ load_page_file (struct sp_entry *spte)
     // ensure that file pos is at the correct position
     file_seek (spte->file, spte->offset);
 
-    // start allcating the frame
-    struct frame *frame = f_table_alloc(PAL_USER | PAL_ZERO);
+    // start allocating the frame
+    struct frame *frame = f_table_alloc (PAL_USER | PAL_ZERO);
     
     if (frame != NULL)
     {
@@ -133,14 +133,12 @@ load_page_file (struct sp_entry *spte)
         success = install_page (spte->uaddr, frame, spte->writeable);
         
         if (!success)
-        {
-            // failed to install page
+        { /* failed to install page */
             f_table_free (frame);
             return false;
         }
         //printf ("\nSUCCESSFUL INSTALL\n");
         spte->is_loaded = true;
-        
         return true;
     }
     else
@@ -167,12 +165,10 @@ load_page_swap (struct sp_entry *spte)
         pagedir_set_dirty (thread_current ()->pagedir, spte->uaddr, 1);
         pagedir_set_accessed (thread_current ()->pagedir, spte->uaddr, 1);
         if (!success)
-        {
-            // failed to install page
+        { /* failed to install page */
             f_table_free (frame);
             return false;
         }
-
         /* swap data from disk into physical memory */
         swap_in (spte->swap_index, spte->uaddr);
 
@@ -204,9 +200,7 @@ add_file_spte (void *uaddr, bool writeable, struct file *file,
         spte->uaddr = uaddr;
         //printf ("spte page at: 0x%x\nspte created writable?: %d\n", (int *)(uaddr), writeable);
 
-
         return (hash_insert (&thread_current ()->spt, &spte->elem) == NULL);
-        
     }
     else
     {
@@ -270,7 +264,7 @@ grow_stack (void *uaddr)
         spte->is_loaded = true;
         spte->writeable = true;
         spte->page_loc = IN_SWAP;
-        spte->uaddr = pg_round_down(uaddr);
+        spte->uaddr = pg_round_down (uaddr);
 
         struct frame *frame = f_table_alloc (PAL_USER | PAL_ZERO);
         if (frame == NULL)
@@ -278,7 +272,7 @@ grow_stack (void *uaddr)
             free (spte);
             return false;
         }
-        if (install_page(spte->uaddr, frame, spte->writeable) == false)
+        if (install_page (spte->uaddr, frame, spte->writeable) == false)
         {
             free (spte);
             f_table_free (frame);
@@ -292,5 +286,3 @@ grow_stack (void *uaddr)
         return false;
     }
 }
-
-

@@ -17,7 +17,7 @@ void f_table_init (void)
 {
     f_table = malloc (sizeof (struct frame_table));
     ASSERT (f_table != NULL);
-    f_table->frames = (struct frame *)calloc (sizeof (struct frame), ft_max);
+    f_table->frames = (struct frame *) calloc (sizeof (struct frame), ft_max);
     ASSERT (f_table->frames != NULL);
     lock_init (&f_table->ft_lock);
     lock_init (&evict_lock);
@@ -30,8 +30,8 @@ void f_table_init (void)
 struct frame *
 f_table_alloc (enum palloc_flags flag)
 {
-    ASSERT(flag == PAL_USER || flag == (PAL_ZERO | PAL_USER));
-    lock_acquire( &f_table->ft_lock);
+    ASSERT (flag == PAL_USER || flag == (PAL_ZERO | PAL_USER));
+    lock_acquire (&f_table->ft_lock);
     if (flag == PAL_USER || flag == (PAL_ZERO | PAL_USER))
     {
         //TODO: double check on logic of evict
@@ -43,7 +43,9 @@ f_table_alloc (enum palloc_flags flag)
             //lock_release (&f_table->ft_lock);
             //lock_acquire (&evict_lock);
             if (!f_table_evict ())
+            {
                 PANIC ("ERROR: unable to evict");
+            }
             //lock_release (&evict_lock);
             //lock_acquire (&f_table->ft_lock);
             page = palloc_get_page (flag);
@@ -70,6 +72,7 @@ f_table_alloc (enum palloc_flags flag)
     }
 }
 
+/* Linear search frame table to find page's corresponding frame */
 struct frame *
 get_frame (void *page)
 {
@@ -77,12 +80,12 @@ get_frame (void *page)
     //lock_acquire (&f_table->ft_lock);
     bool found = false;
     int i = 0;
+    /* Loop through frame table until page's frame is found */
     while (i < ft_max && !found)
-    {
-        struct frame *cur_frame = f_table->frames + i;
+    { 
+        struct frame *cur_frame = (f_table->frames) + i;
         if (cur_frame != NULL && cur_frame->page == page)
-        {
-            //page found
+        { /* page found */
             found = true;
             the_frame = cur_frame;
         }
@@ -94,11 +97,13 @@ get_frame (void *page)
 
 /* Linear searches frame table array, finds unoccupied frame,
    and returns its index */
-int f_table_get_index (void)
+int 
+f_table_get_index (void)
 {
     if (f_table->num_free == 0)
+    {
         return FRAME_ERROR;
-
+    }
     struct frame *cur_frame = NULL;
     //lock_acquire (&f_table->ft_lock);
     int i;
@@ -106,12 +111,12 @@ int f_table_get_index (void)
     {
         cur_frame = (f_table->frames) + i;
         if (!cur_frame->is_occupied)
-        {
+        { /* Found free frame */
             //printf("\nFOUND FREE FRAME: %d\n", i);
             return i;
         }
     }
-    ASSERT(1 == 0);
+    PANIC ("ERROR: No free frame found!\n");
 }
 
 bool f_table_evict (void)
@@ -127,13 +132,12 @@ bool f_table_evict (void)
     bool dirty = false;
 
     bool found = false;
-
     while (!found)
     {
         /* Keep clock index in bounds */
         //f_table->clock_hand = f_table->clock_hand % ft_max;
 
-        /*get necessary structs */
+        /* get necessary structs */
         temp_frame = (f_table->frames + f_table->clock_hand);
         temp_page = temp_frame->page;
         temp_spte = temp_frame->spte;
@@ -145,7 +149,7 @@ bool f_table_evict (void)
             dirty = pagedir_is_dirty (temp_pd, temp_page);
 
             /* Not referenced and not written to 
-            Evict Page! */
+               Evict Page! */
             if (!accessed) /* (0,0) */
             {
                 if (dirty)
@@ -158,8 +162,9 @@ bool f_table_evict (void)
                         /*write to filesys*/
                         lock_acquire (&file_sys_lock);
                         //TODO: double check accuracy of this
-                        file_write(temp_spte->file, temp_page, temp_spte->offset);
-                        lock_release(&file_sys_lock);
+                        file_write (temp_spte->file, temp_page,
+                                    temp_spte->offset);
+                        lock_release (&file_sys_lock);
                         //write ()
                     }
                     else 
@@ -169,7 +174,9 @@ bool f_table_evict (void)
                         //TODO:double check this too & block cur thread
                         int index = swap_out (temp_page);
                         if (index == SWAP_ERROR)
+                        {
                             return false;
+                        }
                         temp_spte->swap_index = index;
                         temp_spte->page_loc = IN_SWAP;
                    
@@ -186,7 +193,6 @@ bool f_table_evict (void)
                 pagedir_set_accessed (temp_pd, temp_page, 0);
             }
         }
-        
         f_table->clock_hand = ((f_table->clock_hand) + 1) % ft_max;
         //printf ("time around: %d\n", f_table->clock_hand);
     }
@@ -201,8 +207,8 @@ void reset_clock_hand ()
 /* Miles Driving */
 void f_table_free (struct frame *frame)
 {
-    printf ("IN F_TABLE_FREE\n");
-    lock_acquire( &f_table->ft_lock);
+    //printf ("IN F_TABLE_FREE\n");
+    lock_acquire (&f_table->ft_lock);
     frame->is_occupied = false;
     frame->spte = NULL;
     frame->t = NULL;

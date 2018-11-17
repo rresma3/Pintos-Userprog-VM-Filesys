@@ -17,11 +17,12 @@
 #define BOTTOM_UVADDR 0x08048000
 #define STACK_HEURISTIC 0xbfff7f80
 
-struct sp_entry {
+struct sp_entry
+{
     void *uaddr;
     size_t swap_index;
 
-    uint8_t page_loc; // 0 == in filesys, 1 == in swap, 2
+    uint8_t page_loc; /* 0 == in filesys, 1 == in swap, 2 */
      
     bool writeable;
     bool is_loaded;  
