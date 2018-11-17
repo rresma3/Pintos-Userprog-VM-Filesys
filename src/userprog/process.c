@@ -299,6 +299,8 @@ free_resources (struct thread *t)
 void
 process_exit (void)
 {
+  //
+  //printf ("\n\nIN PROCESS EXIT\n\n");
   struct thread *cur_thread = thread_current ();
   uint32_t *pd;
   bool be_reaped = false;

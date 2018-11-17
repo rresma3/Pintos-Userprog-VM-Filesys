@@ -15,6 +15,7 @@
 #define IN_SWAP 1
 #define MAX_STACK (1<<23)
 #define BOTTOM_UVADDR 0x08048000
+#define STACK_HEURISTIC 0xbfff7f80
 
 struct sp_entry {
     void *uaddr;

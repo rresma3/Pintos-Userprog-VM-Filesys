@@ -20,7 +20,7 @@ struct frame {
     void *page;
     struct sp_entry *spte;
     struct thread *t;
-    bool second_chance;
+    bool pinned;
 };
 
 struct lock evict_lock;
@@ -37,9 +37,10 @@ struct frame_table {
 
 struct frame* get_frame (void *page);
 void f_table_init (void);
-void* f_table_alloc (enum palloc_flags flag);
+struct frame* f_table_alloc (enum palloc_flags flag);
 int f_table_get_index (void);
 bool f_table_evict (void);
-void f_table_free (void *page);
+void reset_clock_hand (void);
+void f_table_free (struct frame *frame);
 
 #endif

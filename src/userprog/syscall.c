@@ -15,6 +15,7 @@
 #include "devices/input.h"
 #include "threads/malloc.h"
 #include "vm/page.h"
+#include "vm/frame.h"
 /* End Driving */
 
 /* Miles Driving */
@@ -22,6 +23,7 @@ static void syscall_handler (struct intr_frame *);
 
 static bool valid_ptr (int *ptr);
 struct sp_entry* check_ptr (void *vaddr, void *esp);
+void check_buf (void *buf, int size);
 /* End Driving */
 
 /* Brian Driving */
@@ -130,7 +132,7 @@ check_ptr (void *vaddr, void *esp)
 {
   if (vaddr == NULL || vaddr < BOTTOM_UVADDR || !is_user_vaddr (vaddr))
   {
-    error_exit(-1);
+    return NULL;
   }
   
   bool can_load = false;
@@ -143,27 +145,32 @@ check_ptr (void *vaddr, void *esp)
   else if (vaddr >= esp - 32)
   {
     can_load = grow_stack (vaddr);
+    if (can_load)
+      spte = get_spt_entry (&thread_current ()->spt, vaddr);
   }
+
   if (!can_load)
   {
-    error_exit(-1);
+    return NULL;
   }
+
   return spte;
 }
 
-bool
-check_buf (void *buf, int size, void *esp)
+void
+check_buf (void *buf, int size)
 {
   char *buf_copy = (char *)buf;
-  int i;
-  for (i=0; i<size; i+=PGSIZE)
+  if (buf_copy == NULL || *buf_copy == NULL || (*buf_copy + size) == NULL)
+    error_exit (-1);
+
+  if (!is_user_vaddr (buf_copy))
+    error_exit (-1);
+
+  if (get_spt_entry (&thread_current ()->spt, buf_copy) == NULL)
   {
-    struct sp_entry *spte = check_ptr (buf_copy, esp);
-    if (spte != NULL  && !spte->writeable)
-    {
-      error_exit(-1);
-    }
-    buf_copy += PGSIZE;
+    if (buf_copy <= STACK_HEURISTIC)
+      error_exit (-1);
   }
 }
 
@@ -316,16 +323,35 @@ read_handler (struct intr_frame *f)
   int *my_esp = (int*) f->esp;
   /* Check second to last arg's content and then last arg */
   if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2)
-      && valid_ptr (my_esp + 3) && valid_ptr ((int*) *(my_esp + 2)))
+      && valid_ptr (my_esp + 3))
   {
+    /* Must validate the buffer */
+    check_buf ((my_esp + 2), *(my_esp + 3));
+
+    // /* Grow stack */
+    // void * buf_temp;
+    // for (buf_temp = pg_round_down (my_esp + 2); 
+    //      buf_temp < buf_temp + *(my_esp + 3); 
+    //      buf_temp += PGSIZE)
+    // {
+    //   struct sp_entry *spte = NULL; 
+    //   spte = get_spt_entry (&thread_current ()->spt, buf_temp);
+    //   if (spte == NULL)
+    //   {
+    //     grow_stack (buf_temp);
+    //     spte = get_spt_entry (&thread_current ()->spt, buf_temp);
+    //   }
+    //   struct frame *temp_frame = get_frame (buf_temp);
+    //   temp_frame->pinned = true;
+    // }
+
     /* Make args into clear var names */
     int fd = *(my_esp + 1);
     char **buf_ptr = (char**)(my_esp + 2);
     int size = *(my_esp + 3);
     char *buf = *buf_ptr;
 
-    bool check = false;
-    //check = check_buf (*buf_ptr, size, )
+    
 
     if (fd == 0)
     { 

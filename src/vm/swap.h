@@ -17,6 +17,9 @@ struct lock swap_lock;
 /* Swap initialization */
 void swap_table_init (void);
 
+/* Swap garbage collection */
+void swap_table_destroy (void);
+
 /* Swap a frame into a swap slot */
 size_t swap_out (void *uaddr);
 

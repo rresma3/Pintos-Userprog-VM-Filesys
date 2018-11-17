@@ -111,11 +111,12 @@ load_page_file (struct sp_entry *spte)
     file_seek (spte->file, spte->offset);
 
     // start allcating the frame
-    void *frame = f_table_alloc(PAL_USER | PAL_ZERO);
+    struct frame *frame = f_table_alloc(PAL_USER | PAL_ZERO);
     
     if (frame != NULL)
     {
         // check for bytes
+        frame->spte = spte;
         if (file_read_at (spte->file, frame, spte->bytes_read, spte->offset)
             != spte->bytes_read)
             {
@@ -139,6 +140,7 @@ load_page_file (struct sp_entry *spte)
         }
         //printf ("\nSUCCESSFUL INSTALL\n");
         spte->is_loaded = true;
+        
         return true;
     }
     else
@@ -155,14 +157,15 @@ load_page_swap (struct sp_entry *spte)
     //void *uaddr = pagedir_get_page (cur_thread->pagedir, spte->uaddr);
 
     // start allcating the frame
-    void *frame = f_table_alloc(PAL_USER);
+    struct frame *frame = f_table_alloc (PAL_USER | PAL_ZERO);
 
     if (frame != NULL)
     {
         // Map user page to newly allocated frame
         bool success = false;
         success = install_page (spte->uaddr, frame, spte->writeable);
-
+        pagedir_set_dirty (thread_current ()->pagedir, spte->uaddr, 1);
+        pagedir_set_accessed (thread_current ()->pagedir, spte->uaddr, 1);
         if (!success)
         {
             // failed to install page
@@ -173,16 +176,7 @@ load_page_swap (struct sp_entry *spte)
         /* swap data from disk into physical memory */
         swap_in (spte->swap_index, spte->uaddr);
 
-        // TODO: updating page location
-        if (spte->page_loc == IN_SWAP)
-        {
-            
-        }
-        else if (spte->page_loc == IN_FILE)
-        {
-            
-        }
-
+        spte->page_loc = IN_FILE;
         spte->is_loaded = true;
         return true;
     }
@@ -264,6 +258,7 @@ print_spte_stats (struct sp_entry *spte)
 bool
 grow_stack (void *uaddr)
 {
+    //printf ("IN GROW STACK\n");
     if ((PHYS_BASE - pg_round_down(uaddr)) > MAX_STACK)
     {
         return false;
@@ -277,7 +272,7 @@ grow_stack (void *uaddr)
         spte->page_loc = IN_SWAP;
         spte->uaddr = pg_round_down(uaddr);
 
-        void *frame = f_table_alloc (PAL_USER | PAL_ZERO);
+        struct frame *frame = f_table_alloc (PAL_USER | PAL_ZERO);
         if (frame == NULL)
         {
             free (spte);

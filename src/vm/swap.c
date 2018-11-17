@@ -37,8 +37,17 @@ swap_table_init (void)
     else
     {
         /* panic the kernel if no swap device found */
-        PANIC ("ERROR: no swap device found");
+        PANIC ("Kernel Panic: must initialize disk on pintos");
     }
+}
+
+/* Swap destruction */
+void
+swap_table_destroy (void)
+{
+    /* Free all the used swap data structures */
+    swap_dev = NULL;
+    bitmap_destroy (swap_table);
 }
 
 /* Find an available swap slot and place the given page into the slot, 
