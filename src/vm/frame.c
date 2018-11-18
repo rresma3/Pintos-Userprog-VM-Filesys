@@ -121,7 +121,7 @@ f_table_get_index (void)
 
 bool f_table_evict (void)
 {
-    printf ("\n\nIN EVICT\n\n");
+    //printf ("\n\nIN EVICT\n\n");
     struct frame *temp_frame = NULL;
     void *temp_page = NULL;
     struct sp_entry *temp_spte = NULL;
@@ -154,13 +154,15 @@ bool f_table_evict (void)
             {
                 if (dirty)
                 {
-                    printf ("found a dirty page\n");
+                    //printf ("found a dirty page\n");
                     /*page is dirty must writeto disk, find out where*/
-                    printf ("temp_spte address?: 0x%x\n", temp_spte->uaddr);
+                    //printf ("temp_spte address?: 0x%x\n", temp_spte->uaddr);
+                    printf ("0x%x\n", temp_spte->uaddr);
                     if (temp_spte->page_loc == IN_FILE)
                     {
                         //printf("in filesys\n");
                         /*write to filesys*/
+                        pagedir_clear_page (temp_pd, temp_spte->uaddr);
                         lock_acquire (&file_sys_lock);
                         //TODO: double check accuracy of this
                         file_write (temp_spte->file, temp_page,
@@ -173,6 +175,7 @@ bool f_table_evict (void)
                         //printf("in swap\n");
                         /*in swap*/
                         //TODO:double check this too & block cur thread
+                        pagedir_clear_page (temp_pd, temp_spte->uaddr);
                         int index = swap_out (temp_page);
                         if (index == SWAP_ERROR)
                         {
@@ -184,7 +187,7 @@ bool f_table_evict (void)
                     }
                 }
                 /* move out from frame */
-                pagedir_clear_page (temp_pd, temp_frame->page);
+                
                 f_table_free (temp_frame->page);
                 found = true;
                 //printf ("\n\nEVICTED A PAGE\n\n");

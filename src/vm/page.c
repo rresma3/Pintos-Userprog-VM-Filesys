@@ -269,6 +269,7 @@ grow_stack (void *uaddr)
 
         struct frame *frame = f_table_alloc (PAL_USER | PAL_ZERO);
         frame->spte = spte;
+        frame->pinned = true;
         if (frame == NULL)
         {
             free (spte);
