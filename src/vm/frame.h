@@ -43,4 +43,7 @@ bool f_table_evict (void);
 void reset_clock_hand (void);
 void f_table_free (struct frame *frame);
 
+void lock_ft ();
+void unlock_ft ();
+
 #endif

@@ -31,7 +31,7 @@ struct frame *
 f_table_alloc (enum palloc_flags flag)
 {
     ASSERT (flag == PAL_USER || flag == (PAL_ZERO | PAL_USER));
-    lock_acquire (&f_table->ft_lock);
+    lock_ft ();
     if (flag == PAL_USER || flag == (PAL_ZERO | PAL_USER))
     {
         //TODO: double check on logic of evict
@@ -61,13 +61,13 @@ f_table_alloc (enum palloc_flags flag)
         empty_frame->t = thread_current ();
         f_table->num_free--;
         // printf ("%d free frames left\n", f_table->num_free);
-        lock_release (&f_table->ft_lock);
+        unlock_ft ();
 
         return empty_frame;
     }
     else
     {
-        lock_release (&f_table->ft_lock);
+        unlock_ft ();
         return NULL; 
     }
 }
@@ -162,20 +162,18 @@ bool f_table_evict (void)
                     {
                         //printf("in filesys\n");
                         /*write to filesys*/
-                        pagedir_clear_page (temp_pd, temp_spte->uaddr);
-                        lock_acquire (&file_sys_lock);
+                        //lock_acquire (&file_sys_lock);
                         //TODO: double check accuracy of this
                         file_write (temp_spte->file, temp_page,
                                     temp_spte->offset);
-                        lock_release (&file_sys_lock);
+                        //lock_release (&file_sys_lock);
                         //write ()
                     }
                     else 
                     {
-                        //printf("in swap\n");
+                        printf("in swap\n");
                         /*in swap*/
                         //TODO:double check this too & block cur thread
-                        pagedir_clear_page (temp_pd, temp_spte->uaddr);
                         int index = swap_out (temp_page);
                         if (index == SWAP_ERROR)
                         {
@@ -187,8 +185,8 @@ bool f_table_evict (void)
                     }
                 }
                 /* move out from frame */
-                
-                f_table_free (temp_frame->page);
+                pagedir_clear_page (temp_pd, temp_spte->uaddr); 
+                f_table_free (temp_frame->page);        
                 found = true;
                 //printf ("\n\nEVICTED A PAGE\n\n");
             }
@@ -212,11 +210,27 @@ void reset_clock_hand ()
 void f_table_free (struct frame *frame)
 {
     //printf ("IN F_TABLE_FREE\n");
-    lock_acquire (&f_table->ft_lock);
+    lock_ft ();
     frame->is_occupied = false;
     frame->spte = NULL;
     frame->t = NULL;
     palloc_free_page (frame->page);
-    lock_release (&f_table->ft_lock);
+    unlock_ft ();
 }
 /* End Driving */
+
+
+/* Wrapper for our file table lock_acquire () */
+void lock_ft ()
+{
+    if (!lock_held_by_current_thread (&file_sys_lock) &&
+        !lock_held_by_current_thread (&f_table->ft_lock))
+        lock_acquire (&f_table->ft_lock);
+}
+
+/* Wrapper for our file table lock_release () */
+void unlock_ft ()
+{
+    if (lock_held_by_current_thread (&f_table->ft_lock))
+        lock_release (&f_table->ft_lock);
+}
