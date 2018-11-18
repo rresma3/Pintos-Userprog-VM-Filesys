@@ -7,10 +7,14 @@
 #include <inttypes.h>
 #include "vm/swap.h"
 
+/* Sam Driving */
 /* Macro and function used in page aligning for swap */
 static size_t SECTORS_PER_PAGE = PGSIZE / BLOCK_SECTOR_SIZE;
-static size_t pages_per_swap ();
+static size_t PAGES_PER_SWAP;
+static size_t pages_per_swap (void);
+/* End Driving */
 
+/* Ryan Driving */
 /* Swap initialization */
 void 
 swap_table_init (void)
@@ -20,8 +24,9 @@ swap_table_init (void)
     if (swap_dev != NULL)
     {
         lock_init (&swap_lock);
+        PAGES_PER_SWAP = pages_per_swap ();
         /* Swap block metadata to depict free slots */
-        swap_table = bitmap_create (pages_per_swap ());
+        swap_table = bitmap_create (PAGES_PER_SWAP);
         if (swap_table != NULL)
         {
             /* if swap table's bitmap creation was successful, 
@@ -40,7 +45,9 @@ swap_table_init (void)
         PANIC ("Kernel Panic: must initialize disk on pintos");
     }
 }
+/* End Driving */
 
+/* Ryan Driving */
 /* Swap destruction */
 void
 swap_table_destroy (void)
@@ -49,7 +56,9 @@ swap_table_destroy (void)
     swap_dev = NULL;
     bitmap_destroy (swap_table);
 }
+/* End Driving */
 
+/* Sam Driving */
 /* Find an available swap slot and place the given page into the slot, 
    Return the index of the slot if able to find a spot */
 size_t 
@@ -74,7 +83,9 @@ swap_out (void *uaddr)
     }
     return swap_index;
 }
+/* End Driving */
 
+/* Sam Driving */
 /* Swap a page out of a swap slot and place in memory designated by uaddr */
 void 
 swap_in (size_t swap_index, void *uaddr)
@@ -93,7 +104,9 @@ swap_in (size_t swap_index, void *uaddr)
     bitmap_flip (swap_table, swap_index);
     lock_release (&swap_lock);
 }
+/* End Driving */
 
+/* Brian Driving */
 /* update metadata and free the given swap slot */
 void 
 free_swap_slot (size_t swap_index)
@@ -101,7 +114,9 @@ free_swap_slot (size_t swap_index)
     /* clear the corresponding swap slot bit in bitmap */
     bitmap_flip (swap_table, swap_index);  
 }
+/* End Driving */
 
+/* Sam Driving */
 /* Fixed value of pages that could be contained in a swap block */
 static size_t 
 pages_per_swap ()
@@ -109,3 +124,4 @@ pages_per_swap ()
     /* num of pages in swap partition */
     return (block_size (swap_dev) / SECTORS_PER_PAGE);
 }
+/* End Driving */

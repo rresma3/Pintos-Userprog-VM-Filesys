@@ -14,19 +14,26 @@ struct block *swap_dev;
 struct bitmap *swap_table;
 struct lock swap_lock;
 
+/* Ryan Driving */
 /* Swap initialization */
 void swap_table_init (void);
 
 /* Swap garbage collection */
 void swap_table_destroy (void);
+/* End Driving */
 
+/* Sam Driving */
 /* Swap a frame into a swap slot */
 size_t swap_out (void *uaddr);
 
 /* Swap a frame out of a swap slot to mem page */
 void swap_in (size_t swap_index, void *uaddr);
+/* End Driving */
 
+/* Brian Driving */
 /* Vacate a given swap slot */
 void free_swap_slot (size_t swap_index);
+/* End Driving */
+
 
 #endif 

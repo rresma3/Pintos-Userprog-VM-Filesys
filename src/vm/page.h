@@ -44,6 +44,8 @@ bool load_page (struct sp_entry *spte);
 bool load_page_file (struct sp_entry *spte);
 bool load_page_swap (struct sp_entry *spte);
 
+static void page_action_func (struct hash_elem *e, void *aux UNUSED);
+
 /* Add a file supplemental page table entry to the current thread's
  * supplemental page table */
 bool add_file_spte (void* uaddr, bool writeable, struct file *file,

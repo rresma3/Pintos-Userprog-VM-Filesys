@@ -495,7 +495,7 @@ init_thread (struct thread *t, const char *name, int priority)
   sema_init (&t->exit_sema, 0);
   t->waited_on_child = 0;
 
-  if (strcmp(t->name, "main") == 0)
+  if (strcmp (t->name, "main") == 0)
   {
     t->parent = NULL;
   } 
@@ -507,12 +507,13 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   
   /* Miles driving */
-  old_level = intr_disable();
+  old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
-  intr_set_level(old_level);
+  intr_set_level (old_level);
   /* Miles end driving */
 }
 
+/* Brian Driving */
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
    returns a pointer to the frame's base. */
 static void *
@@ -525,6 +526,7 @@ alloc_frame (struct thread *t, size_t size)
   t->stack -= size;
   return t->stack;
 }
+/* End Driving */
 
 /* Chooses and returns the next thread to be scheduled.  Should
    return a thread from the run queue, unless the run queue is

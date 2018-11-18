@@ -153,24 +153,23 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  //ASSERT (fault_addr != NULL);
-  //ASSERT (((int *)pg_round_down(fault_addr)) != NULL);
-
-  //printf ("ATTEMPTING TO SOLVE PG FLT, addr: 0x%x\n", ((int *)pg_round_down(fault_addr)));
-  //printf ("user:%d\nnot_present:%d\nwrite:%d", user, not_present, write);
-
-
+  /* Miles driving */
   if (fault_addr != NULL && is_user_vaddr(fault_addr) && 
       not_present && (fault_addr > BOTTOM_UVADDR))
   {
     bool can_load_page = false;
     bool can_grow_stack = false;
     struct sp_entry *spte = get_spt_entry (&thread_current ()->spt, fault_addr);
+    
     if (spte != NULL)
     {
       can_load_page = load_page (spte);
     }
-    else if (fault_addr >= (thread_current ()->user_esp - 32) ^ fault_addr >= (f->esp - 32))
+    /* End driving */
+
+    /* Ryan driving */
+    else if (fault_addr >= 
+            (thread_current ()->user_esp - 32) ^ fault_addr >= (f->esp - 32))
     {
       can_grow_stack = grow_stack (fault_addr);
     }
@@ -180,27 +179,15 @@ page_fault (struct intr_frame *f)
       return;
     }
     else
-    { /* if could not grow stack or load page then something above went wrong */
+    { 
+      /* if could not grow stack or load page then something above went wrong */
       error_exit (-1);
     }
   }
   else
   {
-    //printf ("\n ABOUT TO EXIT FOR FAILED ACCESS \n");
     error_exit (-1);
-  //   /* To implement virtual memory, delete the rest of the function
-  //   body, and replace it with code that brings in the page to
-  //   which fault_addr refers. */
-  // printf ("Page fault at %p: %s error %s page in %s context.\n",
-  //         fault_addr,
-  //         not_present ? "not present" : "rights violation",
-  //         write ? "writing" : "reading",
-  //         user ? "user" : "kernel");
-
-  // printf("There is no crying in Pintos!\n");
-    
-  // kill (f);
-
   }
+  /* End driving */
 }
 

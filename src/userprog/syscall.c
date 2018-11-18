@@ -61,7 +61,7 @@ syscall_handler (struct intr_frame *f)
   if (!valid_ptr (my_esp))
   {
     /* BAD! */
-    error_exit(-1);
+    error_exit (-1);
   }
   int syscall_num = *(my_esp);
 
@@ -99,8 +99,6 @@ syscall_handler (struct intr_frame *f)
       break;
     case SYS_SEEK :
       seek_handler (f);
-      // TODO: what is this
-      // bool is_occupied;
       break;
     case SYS_TELL :
       tell_handler (f);
@@ -127,6 +125,8 @@ valid_ptr (int *ptr)
 }
 /* End Driving */
 
+/* Sam Driving */
+/* Verifies validity of pointer and returns sp_entry associated with it */
 struct sp_entry*
 check_ptr (void *vaddr, void *esp)
 {
@@ -134,48 +134,56 @@ check_ptr (void *vaddr, void *esp)
   {
     return NULL;
   }
-  
   bool can_load = false;
-  //bool can_grow_stack = false;
   struct sp_entry *spte = get_spt_entry (&thread_current ()->spt, vaddr);
   if (spte != NULL)
   {
     can_load = load_page (spte);
   }
+  /* Heuristic to determine stack access, within 32 bytes of stack ptr */
   else if (vaddr >= esp - 32)
   {
     can_load = grow_stack (vaddr);
     if (can_load)
+    {
       spte = get_spt_entry (&thread_current ()->spt, vaddr);
+    }
   }
-
   if (!can_load)
-  {
+  { /* failed to grow stack */
     return NULL;
   }
 
   return spte;
 }
+/* End Driving */
 
+/* Ryan Driving */
+/* Verify that buf is valid to use */
 void
 check_buf (void *buf, int size)
 {
   char *buf_copy = (char *)buf;
   if (buf_copy == NULL || *buf_copy == NULL || (*buf_copy + size) == NULL)
+  {
     error_exit (-1);
-
+  }
   if (!is_user_vaddr (buf_copy))
+  {
     error_exit (-1);
-
+  }
   if (get_spt_entry (&thread_current ()->spt, buf_copy) == NULL)
   {
     if (buf_copy <= STACK_HEURISTIC)
+    {
       error_exit (-1);
+    }
   }
 }
+/* End Driving */
 
 /* Brian Driving */
-/* Terminates Pintos by calling shutdown_power_off() */
+/* Terminates Pintos by calling shutdown_power_off () */
 static void
 halt_handler ()
 {

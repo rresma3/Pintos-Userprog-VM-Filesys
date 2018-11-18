@@ -299,7 +299,7 @@ free_resources (struct thread *t)
 void
 process_exit (void)
 {
-  //printf ("\n\nIN PROCESS EXIT\n\n");
+  
   struct thread *cur_thread = thread_current ();
   uint32_t *pd;
   bool be_reaped = false;
@@ -361,7 +361,6 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-  // free (cur_thread);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -476,8 +475,6 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
     goto done;
   } 
   process_activate ();
-
-
 
   /* open the file from the file sys */
   file = filesys_open (argv[0]);
@@ -665,6 +662,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
+  /* Ryan driving */
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
     {
@@ -675,33 +673,11 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
       
       // printf ("pg being loaded writable?: %d\n", writable);
-      if (!add_file_spte (upage, writable, file, ofs, page_read_bytes, page_zero_bytes))
+      if (!add_file_spte (upage, writable, file, ofs, page_read_bytes, 
+                          page_zero_bytes))
       {
         return false;
       }
-
-      // /* Get a page of memory. */
-      // //uint8_t *kpage = palloc_get_page (PAL_USER);
-      // uint8_t *kpage = f_table_alloc (PAL_USER);
-      // if (kpage == NULL)
-      //   return false;
-
-      // /* Load this page. */
-      // if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
-      //   {
-      //     //palloc_free_page (kpage);
-      //     f_table_free (kpage);
-      //     return false; 
-      //   }
-      // memset (kpage + page_read_bytes, 0, page_zero_bytes);
-
-      // /* Add the page to the process's address space. */
-      // if (!install_page (upage, kpage, writable)) 
-      //   {
-      //     //palloc_free_page (kpage);
-      //     f_table_free (kpage);
-      //     return false; 
-      //   }
 
       /* Advance. */
       read_bytes -= page_read_bytes;
@@ -710,6 +686,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       ofs += PGSIZE;
     }
   return true;
+  /* End driving */
 }
 
 /* Create a minimal stack by mapping a zeroed page at the top of
@@ -717,20 +694,13 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (char *argv[], int argc, void **esp) 
 {
-
-  //printf ("IN SETUP STACK\n");
+  /* Miles driving */
   bool success = grow_stack(((uint8_t *) PHYS_BASE) - PGSIZE);
+  /* End driving */
 
-  //kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  //kpage = f_table_alloc (PAL_USER | PAL_ZERO);
-  
-  //success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-  //printf ("\nstack page: 0x%x\n", ((uint8_t *) PHYS_BASE) - PGSIZE);
-  //printf ("successful:%d\n", success);
   if (success)
   {
     /* Sam driving */
-    //*esp = PHYS_BASE;
     char *esp_cpy = PHYS_BASE;
     /* keep arguments in a list */
     int64_t count = 0;
