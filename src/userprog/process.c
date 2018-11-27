@@ -725,13 +725,8 @@ setup_stack (char *argv[], int argc, void **esp)
             /* count number of bytes needed */
             count += strlen (argv[i]) + 1;
             /* check for page size */
-<<<<<<< HEAD
-            if (count > PGSIZE)
-              return false;
-=======
              if (count > PGSIZE)
                return false;
->>>>>>> dd528bab2ad8372ac04de102e1e6e33a49403cef
       
             /* add the arg addresses to an array */
             esp_cpy -= strlen (argv[i]) + 1;
@@ -752,13 +747,8 @@ setup_stack (char *argv[], int argc, void **esp)
         }
 
         /* check size again */
-<<<<<<< HEAD
-        if (count > PGSIZE)
-          return false;
-=======
          if (count > PGSIZE)
               return false;
->>>>>>> dd528bab2ad8372ac04de102e1e6e33a49403cef
 
         /* sentinel */
         esp_cpy -= sizeof (char *);
