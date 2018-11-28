@@ -9,16 +9,31 @@
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
-#define IB_SIZE 128
+
+/* Our macros */
+#define IB_NUM_BLOCKS 128
+#define NUM_BLOCKS_DIRECT 120
+
+/* File Allocation Levels */
+#define DIRECT_ALLOC_SPACE 120
+#define INDIRECT_ALLOC_SPACE 248
+
+/* must support file of 8MB size */
+#define MAX_FILE_SIZE 8980480
 
 /* On-disk inode.
-   Must be exactly BLOCK_SECTOR_SIZE bytes long. */
+   Must be exactly BLOCK_SECTOR_SIZE (512) bytes long. */
 struct inode_disk
   {
     block_sector_t start;               /* First data sector. */
     off_t length;                       /* File size in bytes. */
     unsigned magic;                     /* Magic number. */
-    uint32_t unused[125];               /* Not used. */
+    int direct_block_index;
+    int indir_block_index;
+    int dbly_indir_index;
+    block_sector_t direct_blocks[NUM_BLOCKS_DIRECT];               /* Not used. */
+    block_sector_t indir_block;
+    block_sector_t dbly_indir_block;
   };
 
 /* Returns the number of sectors to allocate for an inode SIZE
@@ -38,22 +53,18 @@ struct inode
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
     struct inode_disk data;             /* Inode content. */
+    struct lock inode_lock;             /* Synchronization per file */
   };
 
 /*an indirect block pointer*/
 struct indir_block
   {
-    /*n pointers to blocks*/
-    block_sector_t blocks[IB_SIZE];
-    /*pointer tp enxt free block in array
-    not on disk*/
-    int free_index;
-  };
-
-
-struct dbl_indir_block
-  {
-    struct indir_block indr_blocks[IB_SIZE];
+    /* n pointers to blocks */
+    block_sector_t blocks[IB_NUM_BLOCKS];
+    /*pointer to next free block in array
+      not on disk*/
+    // TODO: may not need
+    //int free_index;
   };
 
 /* Returns the block device sector that contains byte offset POS
@@ -64,8 +75,27 @@ static block_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) 
 {
   ASSERT (inode != NULL);
+  // TODO: 3 levels: check if pos is in direct level, 1st indirect, 2nd indirect
   if (pos < inode->data.length)
+  {
+    int sector_index = pos < BLOCK_SECTOR_SIZE;
+    /* Check if specified pos is within direct allocation */
+    if (sector_index < DIRECT_ALLOC_SPACE)
+    {
+      
+    }
+    /* Check if specified pos is within indirect allocation */
+    else if (sector_index < INDIRECT_ALLOC_SPACE)
+    {
+
+    }
+    else
+    {
+      /* Otherwise pos is within scope of doubly indirect allocation */
+
+    }
     return inode->data.start + pos / BLOCK_SECTOR_SIZE;
+  }
   else
     return -1;
 }
