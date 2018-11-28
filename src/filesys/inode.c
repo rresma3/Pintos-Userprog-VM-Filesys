@@ -9,6 +9,7 @@
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
+#define IB_SIZE 128
 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
@@ -37,6 +38,22 @@ struct inode
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
     struct inode_disk data;             /* Inode content. */
+  };
+
+/*an indirect block pointer*/
+struct indir_block
+  {
+    /*n pointers to blocks*/
+    block_sector_t blocks[IB_SIZE];
+    /*pointer tp enxt free block in array
+    not on disk*/
+    int free_index;
+  };
+
+
+struct dbl_indir_block
+  {
+    struct indir_block indr_blocks[IB_SIZE];
   };
 
 /* Returns the block device sector that contains byte offset POS
