@@ -15,11 +15,17 @@
 #define NUM_BLOCKS_DIRECT 120
 
 /* File Allocation Levels */
-#define DIRECT_ALLOC_SPACE 120
-#define INDIRECT_ALLOC_SPACE 248
+#define DIRECT_ALLOC_SPACE 61440
+#define INDIRECT_ALLOC_SPACE 126976
 
 /* must support file of 8MB size */
 #define MAX_FILE_SIZE 8980480
+block_sector_t byte_to_direct_sector (const struct inode *inode, off_t pos);
+block_sector_t byte_to_indirect_sector (const struct inode *inode, 
+                                        off_t pos);
+block_sector_t byte_to_dbly_indirect_sector (const struct inode *inode, 
+                                             off_t pos);                      
+
 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE (512) bytes long. */
@@ -32,8 +38,8 @@ struct inode_disk
     int indir_block_index;
     int dbly_indir_index;
     block_sector_t direct_blocks[NUM_BLOCKS_DIRECT];               /* Not used. */
-    block_sector_t indir_block;
-    block_sector_t dbly_indir_block;
+    block_sector_t indirect_block;
+    block_sector_t dbly_indirect_block;
   };
 
 /* Returns the number of sectors to allocate for an inode SIZE
@@ -57,7 +63,7 @@ struct inode
   };
 
 /*an indirect block pointer*/
-struct indir_block
+struct indirect_block
   {
     /* n pointers to blocks */
     block_sector_t blocks[IB_NUM_BLOCKS];
@@ -66,6 +72,42 @@ struct indir_block
     // TODO: may not need
     //int free_index;
   };
+
+/* Index of directly allocated sector */
+block_sector_t 
+bytes_to_direct_sectors (const struct inode *inode, off_t pos)
+{
+  ASSERT (pos < DIRECT_ALLOC_SPACE);
+  /* Our sector index can be found in direct allocated blocks */
+  int sector_index = pos / BLOCK_SECTOR_SIZE;
+  return inode->data.direct_blocks[sector_index];
+}
+
+/* Index of singly indirect allocated sector */
+block_sector_t 
+bytes_to_indirect_sectors (const struct inode *inode, off_t pos)
+{
+  ASSERT (pos < INDIRECT_ALLOC_SPACE);
+  /* Must index into the indirect block so we must subtract direct block
+     number from total sectors spanned by pos */
+  int sector_index = (pos / BLOCK_SECTOR_SIZE) - NUM_BLOCKS_DIRECT;
+  /* must read in the right sector from the indirect block index into temp 
+     buffer */
+  struct indirect_block temp_indirect;
+  block_read (fs_device, inode->data.indirect_block_index, &temp_indirect)
+  /* Ensure we can index into our array of blocks */
+  sector_index %= IB_NUM_BLOCKS;
+  return temp_indirect[sector_index];
+}
+
+/* Index of doubly indirect allocated sector */
+block_sector_t 
+bytes_to_dbly_indirect_sectors (const struct inode *inode, off_t pos)
+{
+  ASSERT (pos < MAX_FILE_SIZE);
+
+}                     
+
 
 /* Returns the block device sector that contains byte offset POS
    within INODE.
@@ -78,16 +120,15 @@ byte_to_sector (const struct inode *inode, off_t pos)
   // TODO: 3 levels: check if pos is in direct level, 1st indirect, 2nd indirect
   if (pos < inode->data.length)
   {
-    int sector_index = pos < BLOCK_SECTOR_SIZE;
     /* Check if specified pos is within direct allocation */
-    if (sector_index < DIRECT_ALLOC_SPACE)
+    if (pos < DIRECT_ALLOC_SPACE)
     {
-      
+      return bytes_to_direct_sectors (inode, pos);
     }
     /* Check if specified pos is within indirect allocation */
-    else if (sector_index < INDIRECT_ALLOC_SPACE)
+    else if (pos < INDIRECT_ALLOC_SPACE)
     {
-
+      
     }
     else
     {
