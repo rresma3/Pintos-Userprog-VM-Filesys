@@ -36,7 +36,7 @@ struct inode_disk
     unsigned magic;                     /* Magic number. */
     int direct_block_index;
     int indir_block_index;
-    int dbly_indir_index;
+    int dbly_indirect_index;
     block_sector_t direct_blocks[NUM_BLOCKS_DIRECT];               /* Not used. */
     block_sector_t indirect_block;
     block_sector_t dbly_indirect_block;
@@ -97,7 +97,7 @@ bytes_to_indirect_sectors (const struct inode *inode, off_t pos)
   block_read (fs_device, inode->data.indirect_block_index, &temp_indirect)
   /* Ensure we can index into our array of blocks */
   sector_index %= IB_NUM_BLOCKS;
-  return temp_indirect[sector_index];
+  return temp_indirect.blocks[sector_index];
 }
 
 /* Index of doubly indirect allocated sector */
@@ -105,7 +105,23 @@ block_sector_t
 bytes_to_dbly_indirect_sectors (const struct inode *inode, off_t pos)
 {
   ASSERT (pos < MAX_FILE_SIZE);
-
+  /* Must index into the double indirect block so we must subtract direct 
+     and indirect blocks from total sectors spanned by pos */
+  int sector_index;
+  sector_index = (pos / BLOCK_SECTOR_SIZE) - NUM_BLOCKS_DIRECT - IB_NUM_BLOCKS;
+  /* read in the right sector from the double indirect block index into 
+     a temporary buffer */
+  struct indirect_block temp_dbl_indirect;
+  /* must also then read in the right indirect block index into a buffer */
+  struct indirect_block temp_indirect;
+  /* read in double indirect */
+  block_read (fs_device, inode->data.dbly_indirect_block, &temp_dbl_indirect);
+  sector_index %= IB_NUM_BLOCKS;
+  /* read in the specified singly indirect block stored inside
+     the double indirect */
+  block_read (fs_device, temp_dbl_indirect.blocks[sector_index], 
+              &temp_indirect);
+  return temp_indirect.blocks[sector_index];
 }                     
 
 
@@ -128,14 +144,13 @@ byte_to_sector (const struct inode *inode, off_t pos)
     /* Check if specified pos is within indirect allocation */
     else if (pos < INDIRECT_ALLOC_SPACE)
     {
-      
+      return bytes_to_indirect_sectors (inode, pos);
     }
     else
     {
       /* Otherwise pos is within scope of doubly indirect allocation */
-
+      return bytes_to_dbly_indirect_sectors (inode, pos);
     }
-    return inode->data.start + pos / BLOCK_SECTOR_SIZE;
   }
   else
     return -1;
