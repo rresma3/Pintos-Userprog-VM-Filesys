@@ -204,6 +204,7 @@ inode_create (block_sector_t sector, off_t length)
       block_write (fs_device, disk_inode->indirect_block, zeros);
       block_write (fs_device, disk_inode->dbly_indirect_block, zeros);
       /* Write the created inode disk to sector */
+      //TODO: figure out where to write this
       block_write (fs_device, sector, disk_inode);
       //FIXME: possible need to zero out this sector
 
@@ -246,6 +247,7 @@ inode_create (block_sector_t sector, off_t length)
           }
           else
           {
+            //FIXME: make sure struct is also altered on inode
             /*in the dbl ib, first, read the 1st IB from disk, then index into
             that. */
             if (temp_indirect.index >= IB_NUM_BLOCKS)
