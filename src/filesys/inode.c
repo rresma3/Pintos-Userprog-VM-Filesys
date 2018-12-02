@@ -201,16 +201,16 @@ inode_create (block_sector_t sector, off_t length)
       free_map_allocate (1, &disk_inode->indirect_block);
       free_map_allocate (1, &disk_inode->dbly_indirect_block);
       /* Zero out indirect and dbly indirect block sectors */
-      block_write (fs_device, disk_inode->indirect_block, zeros);
-      block_write (fs_device, disk_inode->dbly_indirect_block, zeros);
+      // block_write (fs_device, disk_inode->indirect_block, zeros);
+      // block_write (fs_device, disk_inode->dbly_indirect_block, zeros);
       /* Write the created inode disk to sector */
       //TODO: figure out where to write this
-      block_write (fs_device, sector, disk_inode);
+      // block_write (fs_device, sector, disk_inode);
       //FIXME: possible need to zero out this sector
 
       /*read in the 1st IB*/
       struct indirect_block temp_IB;
-      block_read(fs_device, disk_inode->indirect_block, &temp_IB.blocks);
+      // block_read(fs_device, disk_inode->indirect_block, &temp_IB.blocks);
 
 
       struct indirect_block temp_dbl_indirect;
@@ -223,6 +223,7 @@ inode_create (block_sector_t sector, off_t length)
 
       unsigned int i;
       block_sector_t temp_block;
+      block_sector_t IB_block;
       struct indirect_block temp_indirect;
       for (i = 0; i < sectors; i++)
       {
@@ -238,16 +239,30 @@ inode_create (block_sector_t sector, off_t length)
             disk_inode->direct_blocks[disk_inode->direct_block_index] = 
             temp_block;
             disk_inode->direct_block_index++;
+            /*only have to write the disk_inode */
           }
           /*NUM_BLOCKS_DIRECT -> NUM-BLOCKS_DIRECT + NUM_BLOCKS*/
           else if (i <= NUM_BLOCKS_DIRECT + IB_NUM_BLOCKS)
           {
+            if (disk_inode->direct_block_index >= NUM_BLOCKS_DIRECT &&
+            disk_inode->indirect_block_index == 0)
+            {
+              /*first time writing to the indirect block.
+              must allocate a free space for it and update the inode_disk*/
+              if (!free_map_allocate (1, &IB_block))
+              {
+                return false;
+              }
+              disk_inode->indirect_block = IB_block;
+              struct indirect_block *temp_IB = calloc (1, sizeof indirect_block);
+
+            }
             temp_IB.blocks[disk_inode->indirect_block_index] = temp_block;
             disk_inode->indirect_block_index++;
+            
           }
           else
           {
-            //FIXME: make sure struct is also altered on inode
             /*in the dbl ib, first, read the 1st IB from disk, then index into
             that. */
             if (temp_indirect.index >= IB_NUM_BLOCKS)
@@ -262,6 +277,7 @@ inode_create (block_sector_t sector, off_t length)
             }
             temp_indirect.blocks[temp_indirect.index] = temp_block;
             temp_indirect.index++;
+            /*must write this change to disk. */
 
           }
         }
