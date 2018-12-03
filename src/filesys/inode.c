@@ -21,11 +21,7 @@
 
 /* must support file of 8MB size */
 #define MAX_FILE_SIZE 8980480
-block_sector_t byte_to_direct_sector (const struct inode *inode, off_t pos);
-block_sector_t byte_to_indirect_sector (const struct inode *inode, 
-                                        off_t pos);
-block_sector_t byte_to_dbly_indirect_sector (const struct inode *inode, 
-                                             off_t pos);                      
+                  
 
 
 /* On-disk inode.
@@ -42,14 +38,6 @@ struct inode_disk
     block_sector_t indirect_block;
     block_sector_t dbly_indirect_block;
   };
-
-/* Returns the number of sectors to allocate for an inode SIZE
-   bytes long. */
-static inline size_t
-bytes_to_sectors (off_t size)
-{
-  return DIV_ROUND_UP (size, BLOCK_SECTOR_SIZE);
-}
 
 /* In-memory inode. */
 struct inode 
@@ -73,6 +61,21 @@ struct indirect_block
     // TODO: may not need
     int index;
   };
+
+block_sector_t byte_to_direct_sector (const struct inode *inode, off_t pos);
+block_sector_t byte_to_indirect_sector (const struct inode *inode, 
+                                        off_t pos);
+block_sector_t byte_to_dbly_indirect_sector (const struct inode *inode, 
+                                             off_t pos);    
+bool inode_expand (struct inode_disk *disk_inode, off_t new_size);
+
+/* Returns the number of sectors to allocate for an inode SIZE
+   bytes long. */
+static inline size_t
+bytes_to_sectors (off_t size)
+{
+  return DIV_ROUND_UP (size, BLOCK_SECTOR_SIZE);
+}
 
 /* Index of directly allocated sector */
 block_sector_t 
@@ -245,7 +248,7 @@ inode_expand (struct inode_disk *disk_inode, off_t new_size)
     /* Check to see if we need to allocate for a new second level IB*/
     if (disk_inode->dbly_indirect_index % IB_NUM_BLOCKS == 0)
     {
-      if (!free_map_allocate (1, temp_DIB.blocks[temp_DIB.index]))
+      if (!free_map_allocate (1, &temp_DIB.blocks[temp_DIB.index]))
       {
         return false;
       }
@@ -258,7 +261,7 @@ inode_expand (struct inode_disk *disk_inode, off_t new_size)
     /* Allocate data blocks while we are in the scope of current IB */
     while (temp_IB.index < IB_NUM_BLOCKS)
     {
-      if (!free_map_allocate (1, temp_IB.blocks[index]))
+      if (!free_map_allocate (1, &temp_IB.blocks[temp_IB.index]))
       {
         return false;
       }
