@@ -168,6 +168,184 @@ inode_init (void)
   list_init (&open_inodes);
 }
 
+/* Function to expand a file to new_size */
+bool
+inode_expand (struct inode_disk *disk_inode, off_t new_size)
+{
+  ASSERT (new_size >= disk_inode->length);
+  size_t sectors = bytes_to_sectors (new_size) - 
+                   bytes_to_sectors (disk_inode->length);
+
+  if (sectors == 0)
+  {
+    disk_inode->length = new_size;
+    return true;
+  }
+         
+  static char zeros[BLOCK_SECTOR_SIZE];
+  /* Direct Allocation */
+  while (disk_inode->direct_block_index < NUM_BLOCKS_DIRECT)
+  {
+    if (!free_map_allocate (1, 
+        &disk_inode->direct_blocks[disk_inode->direct_block_index]))
+    {
+      return false;
+    }
+    block_write (fs_device, 
+                 disk_inode->direct_blocks[disk_inode->direct_block_index], 
+                 zeros);
+    disk_inode->direct_block_index++;
+    sectors--;
+    if (sectors == 0)
+    {
+      disk_inode->length = new_size;
+      return true;
+    }
+  }
+
+  /* Indirect Allocation */
+  /* read in the 1st IB */ 
+  ASSERT (disk_inode->direct_block_index > NUM_BLOCKS_DIRECT);
+  struct indirect_block temp_IB;
+  block_read (fs_device, disk_inode->indirect_block, &temp_IB.blocks);
+  /* Allocate while in scope of our singly indirect block */
+  while (disk_inode->indirect_block_index < IB_NUM_BLOCKS)
+  {
+    if (!free_map_allocate (1, 
+        &temp_IB.blocks[disk_inode->indirect_block_index]))
+    {
+      return false;
+    }
+    /* Zero out newly allocated block */
+    block_write (fs_device, temp_IB.blocks[disk_inode->indirect_block_index], 
+                 zeros);
+    disk_inode->indirect_block_index++;
+    sectors--;
+    if (sectors == 0)
+    {
+      /* Update metadata before returning true */
+      block_write (fs_device, disk_inode->indirect_block, &temp_IB.blocks);
+      disk_inode->length = new_size;
+      return true;
+    }
+  }
+
+  /* Double Indirect Allocation */
+  /* Ensure all the levels preceding DIB Allocation */
+  ASSERT (disk_inode->direct_block_index > NUM_BLOCKS_DIRECT);
+  ASSERT (disk_inode->indirect_block_index > IB_NUM_BLOCKS);
+  /* Read in our DIB */
+  struct indirect_block temp_DIB;
+  block_read (fs_device, disk_inode->dbly_indirect_block, &temp_DIB.blocks);
+  /* Find which IB we are at in the file */
+  temp_DIB.index = disk_inode->dbly_indirect_index / IB_NUM_BLOCKS;
+  /* Allocate as long as we are in the scope of MAX_FILE_SIZE */
+  while (disk_inode->dbly_indirect_index < IB_NUM_BLOCKS * IB_NUM_BLOCKS)
+  { 
+    /* Check to see if we need to allocate for a new second level IB*/
+    if (disk_inode->dbly_indirect_index % IB_NUM_BLOCKS == 0)
+    {
+      if (!free_map_allocate (1, temp_DIB.blocks[temp_DIB.index]))
+      {
+        return false;
+      }
+      temp_DIB.index++;
+    }
+    /* Read in our second level IB */
+    block_read (fs_device, temp_DIB.blocks[temp_DIB.index], &temp_IB.blocks);
+    /* Find which third level data block to allocate for */
+    temp_IB.index = disk_inode->dbly_indirect_index % IB_NUM_BLOCKS;
+    /* Allocate data blocks while we are in the scope of current IB */
+    while (temp_IB.index < IB_NUM_BLOCKS)
+    {
+      if (!free_map_allocate (1, temp_IB.blocks[index]))
+      {
+        return false;
+      }
+      /* Zero out newly allocated block */
+      block_write (fs_device, temp_IB.blocks[disk_inode->indirect_block_index], 
+                   zeros);
+      temp_IB.index++;
+      disk_inode->dbly_indirect_index++;
+      sectors--;
+      if (sectors == 0)
+      {
+        // FIXME: repetitive logic
+        /* Update metadate before returning */
+        block_write (fs_device, temp_DIB.blocks[temp_DIB.index], &temp_IB.blocks);
+        block_write (fs_device, disk_inode->dbly_indirect_block, &temp_DIB.blocks);
+        disk_inode->length = new_size;
+        return true;
+      }
+    }
+    //TODO: check to actually see if we have filled up current IB
+    /* Update our second level IB block */
+    block_write (fs_device, temp_DIB.blocks[temp_DIB.index], &temp_IB.blocks);
+  }
+  /* Update our first level DIB block */
+  block_write (fs_device, disk_inode->dbly_indirect_block, &temp_DIB.blocks);
+  return false;
+
+  // FIXME: original implementation 
+  // unsigned int i;
+  // block_sector_t IB_block;
+  // struct indirect_block temp_indirect;
+  // for (i = 0; i < sectors; i++)
+  // {
+  //   /* Allocate one sector at a time */
+  //   if (free_map_allocate (1, &temp_block))
+  //   {
+  //     block_write (fs_device, temp_block, zeros);
+  //     /* index 0 to NUM_BLOCK_DIRECT */
+  //     if (i <= NUM_BLOCKS_DIRECT)
+  //     {
+  //       /* access the inode struct, get the sector number corresponding
+  //          to the current index. */
+  //       disk_inode->direct_blocks[disk_inode->direct_block_index] = 
+  //       temp_block;
+  //       disk_inode->direct_block_index++;
+  //       /*only have to write the disk_inode */
+  //     }
+  //     /*index NUM_BLOCKS_DIRECT to NUM-BLOCKS_DIRECT + IB_NUM_BLOCKS */
+  //     else if (i <= NUM_BLOCKS_DIRECT + IB_NUM_BLOCKS)
+  //     {
+  //       if (disk_inode->direct_block_index >= NUM_BLOCKS_DIRECT &&
+  //       disk_inode->indirect_block_index == 0)
+  //       {
+  //         /*first time writing to the indirect block.
+  //          must allocate a free space for it and update the inode_disk*/
+  //         if (!free_map_allocate (1, &IB_block))
+  //         {
+  //           return false;
+  //         }
+  //         disk_inode->indirect_block = IB_block;
+  //         //struct indirect_block *temp_IB = calloc (1, sizeof (struct indirect_block));
+  //       }
+  //       temp_IB.blocks[disk_inode->indirect_block_index] = temp_block;
+  //       disk_inode->indirect_block_index++;
+  //     }
+  //     else
+  //     {
+  //       /*in the dbl ib, first, read the 1st IB from disk, then index into
+  //       that. */
+  //       if (temp_indirect.index >= IB_NUM_BLOCKS)
+  //       {
+  //         /*need to read in a new IB*/
+  //         disk_inode->dbly_indirect_index++;
+  //         block_read (fs_device, 
+  //         temp_DIB.blocks[disk_inode->dbly_indirect_index], 
+  //         &temp_indirect.blocks);
+  //         temp_indirect.index = 0;
+  //         /*temp_indirect now holds a new IB*/
+  //       }
+  //       temp_indirect.blocks[temp_indirect.index] = temp_block;
+  //       temp_indirect.index++;
+  //       /*must write this change to disk. */
+
+  //     }
+  //   }   
+  // }
+}
 
 /* Initializes an inode with LENGTH bytes of data and
    writes the new inode to sector SECTOR on the file system
@@ -189,8 +367,8 @@ inode_create (block_sector_t sector, off_t length)
   disk_inode = calloc (1, sizeof *disk_inode);
   if (disk_inode != NULL)
     {
-      size_t sectors = bytes_to_sectors (length);
-      disk_inode->length = length;
+      //size_t sectors = bytes_to_sectors (length);
+      disk_inode->length = 0;
       disk_inode->magic = INODE_MAGIC;
       disk_inode->direct_block_index = 0;
       disk_inode->indirect_block_index = 0;
@@ -201,88 +379,20 @@ inode_create (block_sector_t sector, off_t length)
       free_map_allocate (1, &disk_inode->indirect_block);
       free_map_allocate (1, &disk_inode->dbly_indirect_block);
       /* Zero out indirect and dbly indirect block sectors */
-      // block_write (fs_device, disk_inode->indirect_block, zeros);
-      // block_write (fs_device, disk_inode->dbly_indirect_block, zeros);
+      block_write (fs_device, disk_inode->indirect_block, zeros);
+      block_write (fs_device, disk_inode->dbly_indirect_block, zeros);
+
+      if (inode_expand (disk_inode, length))
+      {
+        block_write (fs_device, sector, disk_inode);
+        success = true;
+      }
+
       /* Write the created inode disk to sector */
       //TODO: figure out where to write this
       // block_write (fs_device, sector, disk_inode);
       //FIXME: possible need to zero out this sector
 
-      /*read in the 1st IB*/
-      struct indirect_block temp_IB;
-      // block_read(fs_device, disk_inode->indirect_block, &temp_IB.blocks);
-
-
-      struct indirect_block temp_dbl_indirect;
-      block_read (fs_device, disk_inode->dbly_indirect_block, 
-      &temp_dbl_indirect.blocks);
-      disk_inode->dbly_indirect_index %= IB_NUM_BLOCKS;
-      /* read in the specified singly indirect block stored inside
-      the double indirect */
-         
-
-      unsigned int i;
-      block_sector_t temp_block;
-      block_sector_t IB_block;
-      struct indirect_block temp_indirect;
-      for (i = 0; i < sectors; i++)
-      {
-        /* Allocate one sector at a time */
-        if (free_map_allocate (1, &temp_block))
-        {
-          block_write (fs_device, temp_block, zeros);
-            /*0 -> NUM_BLOCK_DIRECT*/
-          if (i <= NUM_BLOCKS_DIRECT)
-          {
-            /*access the inode struct, get the sector number corresponding
-            to the current index. */
-            disk_inode->direct_blocks[disk_inode->direct_block_index] = 
-            temp_block;
-            disk_inode->direct_block_index++;
-            /*only have to write the disk_inode */
-          }
-          /*NUM_BLOCKS_DIRECT -> NUM-BLOCKS_DIRECT + NUM_BLOCKS*/
-          else if (i <= NUM_BLOCKS_DIRECT + IB_NUM_BLOCKS)
-          {
-            if (disk_inode->direct_block_index >= NUM_BLOCKS_DIRECT &&
-            disk_inode->indirect_block_index == 0)
-            {
-              /*first time writing to the indirect block.
-              must allocate a free space for it and update the inode_disk*/
-              if (!free_map_allocate (1, &IB_block))
-              {
-                return false;
-              }
-              disk_inode->indirect_block = IB_block;
-              struct indirect_block *temp_IB = calloc (1, sizeof indirect_block);
-
-            }
-            temp_IB.blocks[disk_inode->indirect_block_index] = temp_block;
-            disk_inode->indirect_block_index++;
-            
-          }
-          else
-          {
-            /*in the dbl ib, first, read the 1st IB from disk, then index into
-            that. */
-            if (temp_indirect.index >= IB_NUM_BLOCKS)
-            {
-              /*need to read in a new IB*/
-              disk_inode->dbly_indirect_index++;
-              block_read (fs_device, 
-              temp_dbl_indirect.blocks[disk_inode->dbly_indirect_index], 
-              &temp_indirect.blocks);
-              temp_indirect.index = 0;
-              /*temp_indirect now holds a new IB*/
-            }
-            temp_indirect.blocks[temp_indirect.index] = temp_block;
-            temp_indirect.index++;
-            /*must write this change to disk. */
-
-          }
-        }
-      
-      }
       // if (free_map_allocate (sectors, &disk_inode->start)) 
       //   {
       //     block_write (fs_device, sector, disk_inode);
@@ -296,7 +406,7 @@ inode_create (block_sector_t sector, off_t length)
       //       }
       //     success = true; 
       //   } 
-      // free (disk_inode);
+      free (disk_inode);
     }
   return success;
 }
