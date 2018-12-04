@@ -102,7 +102,7 @@ byte_to_indirect_sector (const struct inode *inode, off_t pos)
   /* must read in the right sector from the indirect block index into temp 
      buffer */
   struct indirect_block temp_indirect;
-  block_read (fs_device, inode->data.indirect_block_index, 
+  block_read (fs_device, inode->data.indirect_block, 
               &temp_indirect.blocks);
   /* Ensure we can index into our array of blocks */
   ASSERT (sector_index < IB_NUM_BLOCKS);
@@ -153,15 +153,18 @@ byte_to_sector (const struct inode *inode, off_t pos)
     /* Check if specified pos is within direct allocation */
     if (pos < DIRECT_ALLOC_SPACE)
     {
+      //printf ("\ndirect\n");
       return byte_to_direct_sector (inode, pos);
     }
     /* Check if specified pos is within indirect allocation */
     else if (pos < INDIRECT_ALLOC_SPACE)
     {
+      //printf ("\nindirect\n");
       return byte_to_indirect_sector (inode, pos);
     }
     else
     {
+      //printf ("\ndouble indirect\n");
       /* Otherwise pos is within scope of doubly indirect allocation */
       return byte_to_dbly_indirect_sector (inode, pos);
     }
@@ -494,6 +497,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
     {
       /* Disk sector to read, starting byte offset within sector. */
       block_sector_t sector_idx = byte_to_sector (inode, offset);
+      ASSERT (sector_idx != -443984445);
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
@@ -508,6 +512,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
 
       if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE)
         {
+          //printf ("\n!! sector_idx: %d !!\n", sector_idx);
           /* Read full sector directly into caller's buffer. */
           block_read (fs_device, sector_idx, buffer + bytes_read);
         }
@@ -521,6 +526,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
               if (bounce == NULL)
                 break;
             }
+            //printf ("\n!! sector_idx: %d !!\n", sector_idx);
           block_read (fs_device, sector_idx, bounce);
           memcpy (buffer + bytes_read, bounce + sector_ofs, chunk_size);
         }
