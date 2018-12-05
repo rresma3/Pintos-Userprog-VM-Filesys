@@ -301,8 +301,8 @@ dir_is_empty (struct inode *inode)
 
 /* Ryan Driving */
 /* Tokenizes a given directory path */
-bool 
-parse_path (char *path, char *file_name)
+struct inode* 
+path_to_inode (char *path)
 {
   /* Hard copy of our path */
   int length = strlen (path) + 1;
@@ -312,17 +312,43 @@ parse_path (char *path, char *file_name)
   if (length <= 1)
     return false;
 
-  bool is_absolute = false;
+  struct dir  *temp_dir;
+  struct inode *temp_inode;
   if (path_cpy[0] == '/')
-    is_absolute = true;
+  {
+    temp_dir = dir_open_root ();
+    temp_inode = temp_dir->inode;
+  }
+  else
+  {
+    //temp_dir = thread_current ()->cwd;
+    temp_inode = temp_dir->inode;
+  }
+    
   
 
   char *token, *save_ptr;
   for (token = strtok_r (path_cpy, "/", &save_ptr); token != NULL;
       token = strtok_r (NULL, "/", &save_ptr))
   {
-
+    /*token is the name of the current dir in the path*/
+    if (!dir_lookup (temp_dir, token, &temp_inode))
+    {
+      dir_close (temp_dir);
+      return NULL;
+    }
+    //FIXME: idk whats wrong with this
+    if (!temp_inode->is_dir)
+    {
+      /*found the file*/
+      dir_close (temp_dir);
+      return temp_inode;
+    }
+    temp_dir->inode = temp_inode;
+    
+    //TODO: make sure we dont have to change the offset
   }
-  return true;
 }
 /* End Driving */
+
+
