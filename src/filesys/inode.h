@@ -20,4 +20,18 @@ void inode_deny_write (struct inode *);
 void inode_allow_write (struct inode *);
 off_t inode_length (const struct inode *);
 
+/* Brian Driving */
+/* Synchronization */
+void lock_inode (struct inode *inode);
+void unlock_inode (struct inode *inode);
+/* End Driving */
+
+/* Many Driving */
+/* Directory functions */
+bool inode_is_dir (struct inode *inode);
+block_sector_t inode_get_parent_dir (struct inode *inode);
+void inode_set_parent_dir (struct inode *inode, block_sector_t parent_dir);
+int inode_get_open_cnt (struct inode *inode);
+/* End Driving */
+
 #endif /* filesys/inode.h */

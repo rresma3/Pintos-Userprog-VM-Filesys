@@ -126,6 +126,8 @@ struct thread
     struct semaphore exit_sema;
     /* keep track of fd count */
     int fd_count;
+    /* keep track of current thread's directory for relative paths */
+    struct dir *cwd;
     /* End Sam Driving */
 
 #ifdef USERPROG

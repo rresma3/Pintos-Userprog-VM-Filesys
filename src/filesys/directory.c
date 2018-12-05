@@ -21,8 +21,12 @@ struct dir_entry
     bool in_use;                        /* In use or free? */
   };
 
+/* Function to determine if the directory is in use at all */
+bool dir_is_empty (struct inode *inode);
+
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
+//TODO: find out how to modify that inode struct to modify is_dir
 bool
 dir_create (block_sector_t sector, size_t entry_cnt)
 {
@@ -124,10 +128,12 @@ dir_lookup (const struct dir *dir, const char *name,
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
+  lock_inode (dir_get_inode ((struct dir*) dir));
   if (lookup (dir, name, &e, NULL))
     *inode = inode_open (e.inode_sector);
   else
     *inode = NULL;
+  unlock_inode (dir_get_inode ((struct dir*) dir));
 
   return *inode != NULL;
 }
@@ -148,13 +154,26 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
+  /* Directory operations, must lock */
+  lock_inode (dir_get_inode (dir));
+
   /* Check NAME for validity. */
   if (*name == '\0' || strlen (name) > NAME_MAX)
-    return false;
+    goto done;
 
   /* Check that NAME is not in use. */
   if (lookup (dir, name, NULL, NULL))
     goto done;
+
+  /* must add branch to tree, add child to parent */
+  /* Ryan Driving */
+  struct inode *inode = inode_open (inode_sector);
+  if (inode == NULL)
+    goto done;
+  block_sector_t temp_parent = inode_get_inumber(dir_get_inode (dir));
+  inode_set_parent_dir (inode, temp_parent);
+  inode_close (inode);
+  /* End Driving */
 
   /* Set OFS to offset of free slot.
      If there are no free slots, then it will be set to the
@@ -175,6 +194,7 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
 
  done:
+  unlock_inode (dir_get_inode (dir));
   return success;
 }
 
@@ -192,6 +212,9 @@ dir_remove (struct dir *dir, const char *name)
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
+  /* Directory operations, must lock */
+  lock_inode (dir_get_inode (dir));
+
   /* Find directory entry. */
   if (!lookup (dir, name, &e, &ofs))
     goto done;
@@ -200,6 +223,23 @@ dir_remove (struct dir *dir, const char *name)
   inode = inode_open (e.inode_sector);
   if (inode == NULL)
     goto done;
+
+  /* Miles Drving */
+  bool is_dir = inode_is_dir (inode);
+
+  /* Cannot remove directory that is open by a process 
+     or in use as a process's CWD */ 
+  if(is_dir && inode_get_open_cnt(inode) > 1)
+    goto done;
+
+  /* Cannot remove root directory */
+  if(is_dir && inode_get_inumber(inode) == ROOT_DIR_SECTOR)
+    goto done;
+  
+  /* Directory should only be allowed to be removed when it is empty */
+  if(is_dir && !dir_is_empty(inode))
+    goto done;
+  /* End Driving */
 
   /* Erase directory entry. */
   e.in_use = false;
@@ -212,6 +252,7 @@ dir_remove (struct dir *dir, const char *name)
 
  done:
   inode_close (inode);
+  unlock_inode (dir_get_inode (dir));
   return success;
 }
 
@@ -223,14 +264,65 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
   struct dir_entry e;
 
+  lock_inode (dir_get_inode (dir));
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
       dir->pos += sizeof e;
       if (e.in_use)
         {
           strlcpy (name, e.name, NAME_MAX + 1);
+          unlock_inode (dir_get_inode (dir));
           return true;
         } 
     }
+  unlock_inode (dir_get_inode (dir));
   return false;
 }
+
+/* Brian Driving */
+/* Indicates whether or not a directory at INODE is still in use or not,
+   adapted from dir_readdir */
+bool 
+dir_is_empty (struct inode *inode)
+{
+  struct dir_entry e;
+  int temp_pos = 0;
+
+  /* Iterate through inode structure while bytes are to be read */
+  while (inode_read_at (inode, &e, sizeof e, temp_pos) == sizeof e)
+  {
+    temp_pos += sizeof e;
+    if (e.in_use == true)
+      return false;
+  }
+  return true;
+}
+/* End Driving */
+
+/* Ryan Driving */
+/* Tokenizes a given directory path */
+bool 
+parse_path (char *path, char *file_name)
+{
+  /* Hard copy of our path */
+  int length = strlen (path) + 1;
+  char *path_cpy;
+  strlcpy (path_cpy, path, length);
+
+  if (length <= 1)
+    return false;
+
+  bool is_absolute = false;
+  if (path_cpy[0] == '/')
+    is_absolute = true;
+  
+
+  char *token, *save_ptr;
+  for (token = strtok_r (path_cpy, "/", &save_ptr); token != NULL;
+      token = strtok_r (NULL, "/", &save_ptr))
+  {
+
+  }
+  return true;
+}
+/* End Driving */

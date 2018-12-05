@@ -21,6 +21,9 @@ struct dir *dir_reopen (struct dir *);
 void dir_close (struct dir *);
 struct inode *dir_get_inode (struct dir *);
 
+/* Path Tokenizer function */
+bool parse_path (char *path, char *file_name);
+
 /* Reading and writing. */
 bool dir_lookup (const struct dir *, const char *name, struct inode **);
 bool dir_add (struct dir *, const char *name, block_sector_t);

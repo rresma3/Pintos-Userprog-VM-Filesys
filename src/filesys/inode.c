@@ -5,6 +5,7 @@
 #include <string.h>
 #include "filesys/filesys.h"
 #include "filesys/free-map.h"
+#include "filesys/directory.h"
 #include "threads/malloc.h"
 #include "threads/synch.h"
 #include <stdio.h>
@@ -13,11 +14,13 @@
 
 /* Our macros */
 #define IB_NUM_BLOCKS 128
-#define NUM_BLOCKS_DIRECT 120
+#define NUM_BLOCKS_DIRECT 118
 
 /* File Allocation Levels */
-#define DIRECT_ALLOC_SPACE 61440
-#define INDIRECT_ALLOC_SPACE 126976
+/* NUM_BLOCKS_DIRECT x BLOCK_SECTOR_SIZE */
+#define DIRECT_ALLOC_SPACE 60416
+/* DIRECT_ALLOC_SPACE + (IB_NUM_BLOCKS x BLOCK_SECTOR_SIZE) */
+#define INDIRECT_ALLOC_SPACE 125952
 
 /* must support file of 8MB size */
 #define MAX_FILE_SIZE 8980480
@@ -30,9 +33,11 @@ struct inode_disk
   {
     block_sector_t start;               /* First data sector. */
     off_t length;                       /* File size in bytes. */  
-    int direct_block_index;
-    int indirect_block_index;
-    int dbly_indirect_index;
+    int direct_block_index;             /* Index of Direct Blocks */
+    int indirect_block_index;           /* Index of Indirect Blocks */
+    int dbly_indirect_index;            /* Index of Double Indirect Blocks */
+    bool is_dir;                        /* Used to determine if Directory */
+    block_sector_t parent_dir;          /* Pointer to parent directory */
     block_sector_t direct_blocks[NUM_BLOCKS_DIRECT];               
     block_sector_t indirect_block;
     block_sector_t dbly_indirect_block;
@@ -56,20 +61,23 @@ struct indirect_block
   {
     /* n pointers to blocks */
     block_sector_t blocks[IB_NUM_BLOCKS];
-    /*pointer to next free block in array
-      not on disk*/
-    // TODO: may not need
+    /* index to current sector */
     int index;
   };
 
+/* Byte to sector helper functions */
 block_sector_t byte_to_direct_sector (const struct inode *inode, off_t pos);
 block_sector_t byte_to_indirect_sector (const struct inode *inode, 
                                         off_t pos);
 block_sector_t byte_to_dbly_indirect_sector (const struct inode *inode, 
                                              off_t pos);    
+/* Basic file growth expand function */
 bool inode_expand (struct inode_disk *disk_inode, off_t new_size);
 
-void free_indirect_block (struct indirect_block);
+//TODO: DEALLOCATION OF INODE DISK
+void free_direct (struct inode_disk *disk_inode);
+void free_indirect (struct inode_disk *disk_inode);
+void free_double_indirect (struct inode_disk *disk_inode);
 
 
 
@@ -81,6 +89,7 @@ bytes_to_sectors (off_t size)
   return DIV_ROUND_UP (size, BLOCK_SECTOR_SIZE);
 }
 
+/* Miles Driving */
 /* Index of directly allocated sector */
 block_sector_t 
 byte_to_direct_sector (const struct inode *inode, off_t pos)
@@ -90,7 +99,9 @@ byte_to_direct_sector (const struct inode *inode, off_t pos)
   int sector_index = pos / BLOCK_SECTOR_SIZE;
   return inode->data.direct_blocks[sector_index];
 }
+/* End Driving */
 
+/* Ryan Driving */
 /* Index of singly indirect allocated sector */
 block_sector_t 
 byte_to_indirect_sector (const struct inode *inode, off_t pos)
@@ -108,7 +119,9 @@ byte_to_indirect_sector (const struct inode *inode, off_t pos)
   ASSERT (sector_index < IB_NUM_BLOCKS);
   return temp_indirect.blocks[sector_index];
 }
+/* Ryan Driving */
 
+/* Sam Driving */
 /* Index of doubly indirect allocated sector */
 block_sector_t 
 byte_to_dbly_indirect_sector (const struct inode *inode, off_t pos)
@@ -136,18 +149,20 @@ byte_to_dbly_indirect_sector (const struct inode *inode, off_t pos)
   block_read (fs_device, temp_dbl_indirect.blocks[index_DIB], 
               &temp_indirect.blocks);
   return temp_indirect.blocks[index_IB];
-}                     
+}
+/* Sam Driving */                     
 
 
 /* Returns the block device sector that contains byte offset POS
    within INODE.
    Returns -1 if INODE does not contain data for a byte at offset
    POS. */
+/* Brian Driving */
 static block_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) 
 {
   ASSERT (inode != NULL);
-  // TODO: 3 levels: check if pos is in direct level, 1st indirect, 2nd indirect
+  /* 3 levels: check if pos is in direct level, 1st indirect, 2nd indirect */
   if (pos < inode_length (inode))
   {
     /* Check if specified pos is within direct allocation */
@@ -172,6 +187,7 @@ byte_to_sector (const struct inode *inode, off_t pos)
   else
     return -1;
 }
+/* End Driving */
 
 /* List of open inodes, so that opening a single inode twice
    returns the same `struct inode'. */
@@ -188,29 +204,37 @@ inode_init (void)
 bool
 inode_expand (struct inode_disk *disk_inode, off_t new_size)
 {
-
+  /* Miles Driving */
   ASSERT (new_size >= disk_inode->length);
+  /* Number of sectors to be allocated */
   size_t sectors = bytes_to_sectors (new_size) - 
                    bytes_to_sectors (disk_inode->length);
   //printf ("in expand!\n");
+  /* Quick return */
   if (sectors == 0)
   {
     disk_inode->length = new_size;
     return true;
   }
-         
+
+  /* Zero Array for zeroing out newly allocated blocks */       
   static char zeros[BLOCK_SECTOR_SIZE];
+
   /* Direct Allocation */
+  /* Allocate while in scope of our direct blocks */
   while (disk_inode->direct_block_index < NUM_BLOCKS_DIRECT)
   {
+    /* Allocate at proper index */
     if (!free_map_allocate (1, 
         &disk_inode->direct_blocks[disk_inode->direct_block_index]))
     {
       return false;
     }
+    /* Zero out newly allocated block */
     block_write (fs_device, 
                  disk_inode->direct_blocks[disk_inode->direct_block_index], 
                  zeros);
+    /* Update indexes accordingly */
     disk_inode->direct_block_index++;
     sectors--;
     if (sectors == 0)
@@ -219,7 +243,9 @@ inode_expand (struct inode_disk *disk_inode, off_t new_size)
       return true;
     }
   }
+  /* End Driving */
 
+  /* Brian Driving */
   /* Indirect Allocation */
   /* read in the 1st IB */ 
   ASSERT (disk_inode->direct_block_index >= NUM_BLOCKS_DIRECT);
@@ -251,8 +277,9 @@ inode_expand (struct inode_disk *disk_inode, off_t new_size)
   }
   /* Update metadata before proceeding */
   block_write (fs_device, disk_inode->indirect_block, &temp_IB.blocks);
+  /* End Driving */
 
-
+  /* Ryan Driving */
   /* Double Indirect Allocation */
   /* Ensure all the levels preceding DIB Allocation */
   ASSERT (disk_inode->direct_block_index >= NUM_BLOCKS_DIRECT);
@@ -306,7 +333,6 @@ inode_expand (struct inode_disk *disk_inode, off_t new_size)
         return true;
       }
     }
-    //TODO: check to actually see if we have filled up current IB
     /* Update our second level IB block */
     //printf ("write 5\n");
     block_write (fs_device, temp_DIB.blocks[temp_DIB.index], &temp_IB.blocks);
@@ -315,7 +341,7 @@ inode_expand (struct inode_disk *disk_inode, off_t new_size)
   //printf ("write 6\n");
   block_write (fs_device, disk_inode->dbly_indirect_block, &temp_DIB.blocks);
   return false;
-
+  /* End Driving */
 }
 
 /* Initializes an inode with LENGTH bytes of data and
@@ -338,7 +364,7 @@ inode_create (block_sector_t sector, off_t length)
   disk_inode = calloc (1, sizeof *disk_inode);
   if (disk_inode != NULL)
     {
-      //size_t sectors = bytes_to_sectors (length);
+      /* Sam Driving */
       disk_inode->length = 0;
       disk_inode->magic = INODE_MAGIC;
       disk_inode->direct_block_index = 0;
@@ -361,25 +387,7 @@ inode_create (block_sector_t sector, off_t length)
         block_write (fs_device, sector, disk_inode);
         success = true;
       }
-
-      /* Write the created inode disk to sector */
-      //TODO: figure out where to write this
-      // block_write (fs_device, sector, disk_inode);
-      //FIXME: possible need to zero out this sector
-
-      // if (free_map_allocate (sectors, &disk_inode->start)) 
-      //   {
-      //     block_write (fs_device, sector, disk_inode);
-      //     if (sectors > 0) 
-      //       {
-      //         static char zeros[BLOCK_SECTOR_SIZE];
-      //         size_t i;
-              
-      //         for (i = 0; i < sectors; i++) 
-      //           block_write (fs_device, disk_inode->start + i, zeros);
-      //       }
-      //     success = true; 
-      //   } 
+      /* End Driving */
       free (disk_inode);
     }
   return success;
@@ -417,8 +425,10 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
+  /* Miles Driving */
   lock_init (&inode->inode_lock);
   block_read (fs_device, inode->sector, &inode->data);
+  /* End Driving */
   return inode;
 }
 
@@ -487,17 +497,18 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   off_t bytes_read = 0;
   uint8_t *bounce = NULL;
 
-  /*check if we are reading past the files allocation*/
+  /* Sam Driving */
+  /* Check if we are reading past the files allocation */
   if (size + offset > inode_length(inode))
   {
     return bytes_read;
   }
+  /* End Driving */
 
   while (size > 0) 
     {
       /* Disk sector to read, starting byte offset within sector. */
       block_sector_t sector_idx = byte_to_sector (inode, offset);
-      ASSERT (sector_idx != -443984445);
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
@@ -557,14 +568,25 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   if (inode->deny_write_cnt)
     return 0;
 
-  if (size + offset >= inode_length(inode))
+  /* Sam Driving */
+  /* Must check if the write is past the EOF */
+  if (size + offset > inode_length(inode))
   {
-    /*we need to expand the file*/
+    /* Lock if not a directory */
+    if (!inode_is_dir (inode))
+      lock_inode (inode);
+    /* We need to expand the file */
     if (!inode_expand (&inode->data, (offset + size)))
     {
+      if (!inode_is_dir (inode))
+        unlock_inode (inode);
       return 0;
     }
+    if (!inode_is_dir (inode))
+      unlock_inode (inode);
   }
+  /* End Driving */
+
   while (size > 0) 
     {
       /* Sector to write, starting byte offset within sector. */
@@ -643,3 +665,58 @@ inode_length (const struct inode *inode)
 {
   return inode->data.length;
 }
+
+/* Sam Driving */
+/* Returns whether or not INODE is a directory or a plain file */
+bool 
+inode_is_dir (struct inode *inode)
+{
+  return inode->data.is_dir;
+}
+/* End Driving */
+
+/* Ryan Driving */
+/* Returns the sector number of INODE's parent directory */
+block_sector_t 
+inode_get_parent_dir (struct inode *inode)
+{
+  return inode->data.parent_dir;
+}
+/* End Driving */
+
+/* Ryan Driving */
+/* Append INODE to given parent directory */
+void 
+inode_set_parent_dir (struct inode *inode, block_sector_t parent_dir)
+{
+  inode->data.parent_dir = parent_dir;
+}
+/* End Driving */
+
+/* Miles Driving */
+/* Returns the count of references that have INODE opened */
+int 
+inode_get_open_cnt (struct inode *inode)
+{
+  return inode->open_cnt;
+}
+/* End Driving */
+
+/* Brian Driving */
+/* Wrapper for locking inode struct */
+void 
+lock_inode (struct inode *inode)
+{
+  lock_acquire (&inode->inode_lock);
+}
+/* End Driving */
+
+/* Brian Driving */
+/* Wrapper for unlocking inode struct*/
+void 
+unlock_inode (struct inode *inode)
+{
+  lock_release (&inode->inode_lock);
+}
+/* End Driving */
+
