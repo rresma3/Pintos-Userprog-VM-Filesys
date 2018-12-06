@@ -73,6 +73,7 @@ block_sector_t byte_to_dbly_indirect_sector (const struct inode *inode,
                                              off_t pos);    
 /* Basic file growth expand function */
 bool inode_expand (struct inode_disk *disk_inode, off_t new_size);
+bool get_data_is_dir (struct inode *ptr);
 
 //TODO: DEALLOCATION OF INODE DISK
 void free_direct (struct inode_disk *disk_inode);
@@ -87,6 +88,12 @@ static inline size_t
 bytes_to_sectors (off_t size)
 {
   return DIV_ROUND_UP (size, BLOCK_SECTOR_SIZE);
+}
+
+bool
+get_data_is_dir (struct inode *ptr)
+{
+  return ptr->data.is_dir;
 }
 
 /* Miles Driving */

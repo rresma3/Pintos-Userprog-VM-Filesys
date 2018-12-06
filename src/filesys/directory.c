@@ -338,7 +338,7 @@ path_to_inode (char *path)
       return NULL;
     }
     //FIXME: idk whats wrong with this
-    if (!temp_inode->is_dir)
+    if (!get_data_is_dir(temp_inode))
     {
       /*found the file*/
       dir_close (temp_dir);

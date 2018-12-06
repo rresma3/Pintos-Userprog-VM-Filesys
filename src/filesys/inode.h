@@ -24,6 +24,7 @@ off_t inode_length (const struct inode *);
 /* Synchronization */
 void lock_inode (struct inode *inode);
 void unlock_inode (struct inode *inode);
+struct inode* path_to_inode (char *path);
 /* End Driving */
 
 /* Many Driving */

@@ -325,6 +325,11 @@ process_exit (void)
       }    
     }
   }
+
+  if (cur_thread->cwd)
+  {
+    dir_close (cur_thread->cwd);
+  }
   /* garbage collection */
   /* tokenize the first part of the name */
   char *save_ptr;
@@ -565,6 +570,8 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
           break;
         }
     }
+
+  thread_current ()->cwd = dir_open_root();
 
 
   /* Set up stack. */
