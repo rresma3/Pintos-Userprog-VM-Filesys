@@ -20,6 +20,7 @@ struct dir *dir_open_root (void);
 struct dir *dir_reopen (struct dir *);
 void dir_close (struct dir *);
 struct inode *dir_get_inode (struct dir *);
+//struct inode *dir_get_inode (struct dir *dir);
 
 /* Path Tokenizer function */
 bool parse_path (char *path, char *file_name);

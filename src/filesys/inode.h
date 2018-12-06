@@ -19,6 +19,8 @@ off_t inode_write_at (struct inode *, const void *, off_t size, off_t offset);
 void inode_deny_write (struct inode *);
 void inode_allow_write (struct inode *);
 off_t inode_length (const struct inode *);
+bool get_data_is_dir (struct inode *ptr);
+void inode_incr_open_cnt (struct inode *inode);
 
 /* Brian Driving */
 /* Synchronization */

@@ -123,6 +123,8 @@ start_process (void *file_name_)
   }
   /* now arg_vector contains the argument vector */
   /* load the exe and get the status */
+  thread_current ()->cwd = dir_open_root();
+  printf ("\n\nseting cwd %d\n\n", thread_current()-> cwd != NULL);
   success = load (arg_vector, argc, &if_.eip, &if_.esp);
   
   /* If load failed, quit. */
@@ -571,7 +573,7 @@ load (char *argv[], int argc, void (**eip) (void), void **esp)
         }
     }
 
-  thread_current ()->cwd = dir_open_root();
+  
 
 
   /* Set up stack. */

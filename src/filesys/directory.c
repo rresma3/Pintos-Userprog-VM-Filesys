@@ -5,6 +5,8 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "threads/thread.h"
+
 
 /* A directory. */
 struct dir 
@@ -23,6 +25,7 @@ struct dir_entry
 
 /* Function to determine if the directory is in use at all */
 bool dir_is_empty (struct inode *inode);
+
 
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
@@ -304,10 +307,12 @@ dir_is_empty (struct inode *inode)
 struct inode* 
 path_to_inode (char *path)
 {
+  printf ("top of method\n");
   /* Hard copy of our path */
   int length = strlen (path) + 1;
-  char *path_cpy;
+  char *path_cpy = malloc (length);
   strlcpy (path_cpy, path, length);
+  printf ("after copy\n");
 
   if (length <= 1)
     return false;
@@ -321,12 +326,13 @@ path_to_inode (char *path)
   }
   else
   {
-    //temp_dir = thread_current ()->cwd;
+    temp_dir = thread_current ()->cwd;
+    if (temp_dir == NULL)
+    {
+      temp_dir = dir_open_root ();
+    }
     temp_inode = temp_dir->inode;
   }
-    
-  
-
   char *token, *save_ptr;
   for (token = strtok_r (path_cpy, "/", &save_ptr); token != NULL;
       token = strtok_r (NULL, "/", &save_ptr))
@@ -345,9 +351,13 @@ path_to_inode (char *path)
       return temp_inode;
     }
     temp_dir->inode = temp_inode;
-    
+    temp_dir->pos = 0;
+    printf ("inside loop\n");
     //TODO: make sure we dont have to change the offset
   }
+  return NULL;
+  dir_close (temp_dir);
+  printf ("end of method\n");
 }
 /* End Driving */
 

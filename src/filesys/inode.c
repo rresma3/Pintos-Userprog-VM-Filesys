@@ -73,7 +73,7 @@ block_sector_t byte_to_dbly_indirect_sector (const struct inode *inode,
                                              off_t pos);    
 /* Basic file growth expand function */
 bool inode_expand (struct inode_disk *disk_inode, off_t new_size);
-bool get_data_is_dir (struct inode *ptr);
+
 
 //TODO: DEALLOCATION OF INODE DISK
 void free_direct (struct inode_disk *disk_inode);
@@ -661,6 +661,8 @@ inode_deny_write (struct inode *inode)
 void
 inode_allow_write (struct inode *inode) 
 {
+  printf ("DENY_CNT %d\n", inode->deny_write_cnt);
+  printf ("OPEN_CNT %d\n", inode->open_cnt);
   ASSERT (inode->deny_write_cnt > 0);
   ASSERT (inode->deny_write_cnt <= inode->open_cnt);
   inode->deny_write_cnt--;
@@ -706,6 +708,12 @@ int
 inode_get_open_cnt (struct inode *inode)
 {
   return inode->open_cnt;
+}
+
+void
+inode_incr_open_cnt (struct inode *inode)
+{
+  inode->open_cnt++;
 }
 /* End Driving */
 
