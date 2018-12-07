@@ -27,7 +27,6 @@ bool dir_is_empty (struct inode *inode);
 
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
-//TODO: find out how to modify that inode struct to modify is_dir
 bool
 dir_create (block_sector_t sector, size_t entry_cnt)
 {
@@ -128,7 +127,6 @@ dir_lookup (const struct dir *dir, const char *name,
 
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
-  // TODO: don't want this line but removing it fails more tests??
   dir = dir_open_root ();
   /* Ryan Driving */
   lock_inode (dir_get_inode ((struct dir*) dir));
@@ -285,18 +283,15 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
   struct dir_entry e;
 
-  //lock_inode (dir_get_inode (dir));
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
       dir->pos += sizeof e;
       if (e.in_use)
         {
           strlcpy (name, e.name, NAME_MAX + 1);
-          //unlock_inode (dir_get_inode (dir));
           return true;
         } 
     }
-  //unlock_inode (dir_get_inode (dir));
   return false;
 }
 
@@ -320,58 +315,7 @@ dir_is_empty (struct inode *inode)
 }
 /* End Driving */
 
-/* Miles Driving */
-/* Tokenizes a given directory path */
-struct inode* 
-path_to_inode (char *path)
-{
-  /* Hard copy of our path */
-  int length = strlen (path) + 1;
-  char *path_cpy = NULL;
-  strlcpy (path_cpy, path, length);
 
-  if (length <= 1)
-    return false;
-
-  struct dir *temp_dir = NULL;
-  struct inode *temp_inode = NULL;
-  if (path_cpy[0] == '/')
-  {
-    temp_dir = dir_open_root ();
-    temp_inode = temp_dir->inode;
-  }
-  else
-  {
-    //temp_dir = thread_current ()->cwd;
-    temp_inode = temp_dir->inode;
-  }
-    
-  
-
-  char *token, *save_ptr;
-  for (token = strtok_r (path_cpy, "/", &save_ptr); token != NULL;
-      token = strtok_r (NULL, "/", &save_ptr))
-  {
-    /*token is the name of the current dir in the path*/
-    if (!dir_lookup (temp_dir, token, &temp_inode))
-    {
-      dir_close (temp_dir);
-      return NULL;
-    }
-    //FIXME: idk whats wrong with this
-    if (!inode_is_dir (temp_dir->inode))
-    {
-      /*found the file*/
-      dir_close (temp_dir);
-      return temp_inode;
-    }
-    temp_dir->inode = temp_inode;
-    
-    //TODO: make sure we dont have to change the offset
-  }
-  return temp_inode;
-}
-/* End Driving */
 
 /* Brian Drivng */
 char *
@@ -444,26 +388,28 @@ path_to_dir (char *path)
   char *token = NULL;
   char *next_token = NULL;
 
-  token = strtok_r(path_cpy, "/", &save_ptr);
-  if(token) 
-    next_token = strtok_r(NULL, "/", &save_ptr);
+  token = strtok_r (path_cpy, "/", &save_ptr);
+  if (token) 
+    next_token = strtok_r (NULL, "/", &save_ptr);
 
-  while(next_token)
+  while (next_token)
   {
     struct inode *inode;
 
-	  if(!dir_lookup(cur_dir, token, &inode)) 
-      return NULL; // save inode corresponding to token. if fails, return NULL
+	  if(!dir_lookup (cur_dir, token, &inode)) 
+      return NULL; 
+      /* save inode corresponding to token. 
+      if fails, return NULL*/
 
-    if(inode_is_dir(inode))
+    if(inode_is_dir (inode))
     {
-	    dir_close(cur_dir);
-	    cur_dir = dir_open(inode);
+	    dir_close (cur_dir);
+	    cur_dir = dir_open (inode);
     }
     else 
-      inode_close(inode);
+      inode_close (inode);
     token = next_token;
-    next_token = strtok_r(NULL, "/", &save_ptr);
+    next_token = strtok_r (NULL, "/", &save_ptr);
   }
 
   /* Cannot open a removed directory */
@@ -476,4 +422,3 @@ path_to_dir (char *path)
   return cur_dir; 
 }
 /* End Driving */
-

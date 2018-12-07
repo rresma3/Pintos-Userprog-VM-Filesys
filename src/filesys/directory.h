@@ -22,7 +22,6 @@ void dir_close (struct dir *);
 struct inode *dir_get_inode (struct dir *);
 
 /* Subdirectory Functions */
-struct inode *path_to_inode (char *path);
 char *path_to_f_name (char *path);
 struct dir *path_to_dir (char *path);
 
