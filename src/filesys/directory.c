@@ -128,6 +128,7 @@ dir_lookup (const struct dir *dir, const char *name,
 
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
+  // TODO: don't want this line but removing it fails more tests??
   dir = dir_open_root ();
   /* Ryan Driving */
   lock_inode (dir_get_inode ((struct dir*) dir));
