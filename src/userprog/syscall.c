@@ -10,6 +10,8 @@
 #include "userprog/process.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "filesys/directory.h"
+#include "filesys/inode.h"
 #include "threads/synch.h"
 #include "pagedir.h"
 #include "devices/input.h"
@@ -36,6 +38,11 @@ static void write_handler (struct intr_frame *f);
 static void seek_handler (struct intr_frame *f);
 static void tell_handler (struct intr_frame *f);
 static void close_handler (struct intr_frame *f);
+static void chdir_handler (struct intr_frame *f);
+static void mkdir_handler (struct intr_frame *f);
+static void readdir_handler (struct intr_frame *f);
+static void isdir_handler (struct intr_frame *f);
+static void inumber_handler (struct intr_frame *f);
 static void error_exit (int exit_status);
 /* End Driving */
 
@@ -102,6 +109,18 @@ syscall_handler (struct intr_frame *f)
       break;
     case SYS_CLOSE :
       close_handler (f);
+      break;
+    case SYS_CHDIR :
+      chdir_handler (f);
+      break;
+    case SYS_MKDIR :
+      mkdir_handler (f);
+      break;
+    case SYS_READDIR :
+      readdir_handler (f);
+      break;
+    case SYS_INUMBER :
+      inumber_handler (f);
       break;
     default :
       error_exit (-1);
@@ -212,7 +231,7 @@ create_handler (struct intr_frame *f)
     char *f_name = (char*) *(my_esp + 1);
     unsigned initial_size = (unsigned) *(my_esp + 2);
 
-    f->eax = filesys_create (f_name, initial_size);
+    f->eax = filesys_create (f_name, initial_size, false);
     lock_release (&file_sys_lock);
   }
   else
@@ -293,7 +312,7 @@ read_handler (struct intr_frame *f)
     {
       struct list_elem *iterator;
       struct file_elem *cur_file;
-      lock_acquire (&file_sys_lock);
+      //lock_acquire (&file_sys_lock);
       struct list *cur_file_list = &thread_current ()->file_list;
 
       /* Loop thru file list until fd is found */
@@ -312,7 +331,7 @@ read_handler (struct intr_frame *f)
           f->eax = -1;
         }
       }
-      lock_release (&file_sys_lock);
+      //lock_release (&file_sys_lock);
     }
   }
   else
@@ -351,7 +370,7 @@ write_handler (struct intr_frame *f)
     {
       struct list_elem *iterator;
       struct file_elem *cur_file;
-      lock_acquire (&file_sys_lock);
+      //lock_acquire (&file_sys_lock);
       struct list *cur_file_list = &thread_current ()->file_list;
 
       /* Loop thru file list until fd is found */
@@ -371,7 +390,7 @@ write_handler (struct intr_frame *f)
             f->eax = -1;
           }
         }
-        lock_release (&file_sys_lock);
+        //lock_release (&file_sys_lock);
     }
   }
   else
@@ -600,3 +619,160 @@ open_handler (struct intr_frame *f)
 }
 /* End Driving */
 
+/* Miles Driving */
+/* Changes the current working directory of the process to dir, 
+   which may be relative or absolute. Returns true if successful, 
+   false on failure. */
+static void 
+chdir_handler (struct intr_frame *f)
+{
+  int *my_esp = f->esp;
+  /* Validate pointers */
+  if (valid_ptr (my_esp + 1))
+  {
+    char *dir = (char *)(*(my_esp + 1));
+    f->eax = filesys_chdir(dir);
+  }
+  else
+  {
+    error_exit (-1);
+  }
+}
+/* End Driving */
+
+/* Ryan Driving */
+/* Creates the directory named dir, which may be relative or absolute. 
+   Returns true if successful, false on failure. Fails if dir already 
+   exists or if any directory name in dir, besides the last, does not 
+   already exist. That is, mkdir("/a/b/c") succeeds only if /a/b already 
+   exists and /a/b/c does not. */
+static void 
+mkdir_handler (struct intr_frame *f)
+{
+  int *my_esp = f->esp;
+  if (valid_ptr (my_esp + 1))
+  {
+    char *dir = (char *)(*(my_esp + 1));
+    f->eax = filesys_mkdir(dir);
+  }
+  else
+  {
+    error_exit (-1);
+  }
+}
+/* End Driving */
+
+/* Sam Driving */
+static void 
+readdir_handler (struct intr_frame *f)
+{
+  int *my_esp = f->esp;
+  if (valid_ptr (my_esp + 1) && valid_ptr (my_esp + 2))
+  {
+    /* Traverse to find given file via fd */
+    struct list_elem *iterator;
+    struct file_elem *cur_file = NULL;
+    struct list *cur_file_list = &thread_current ()->file_list;
+
+    int fd = (int)(*(my_esp + 1));
+    char *name = (char *)(*(my_esp + 2));
+
+    /* Loop thru file list until fd is found */
+    for (iterator = list_begin (cur_file_list);
+         iterator != list_end (cur_file_list);
+         iterator = list_next (iterator))
+      {
+        cur_file = list_entry (iterator, struct file_elem, elem);
+        if (cur_file != NULL && cur_file->fd == fd)
+        {
+          struct inode *inode = file_get_inode (cur_file->file);
+          if (!inode_is_dir (inode))
+          {
+            f->eax = false;
+          }
+          else
+          {
+            struct dir *dir = path_to_dir (name);
+            char *f_name = path_to_f_name (name);
+            f->eax = dir_readdir (dir, f_name);
+          } 
+        }
+      }
+  }
+  else
+  {
+    error_exit (-1);
+  }
+}
+/* End Driving */
+
+static void 
+isdir_handler (struct intr_frame *f)
+{
+  int *my_esp = f->esp;
+  if (valid_ptr (my_esp + 1))
+  {
+    /* Traverse to find given file via fd */
+    struct list_elem *iterator;
+    struct file_elem *cur_file = NULL;
+    struct list *cur_file_list = &thread_current ()->file_list;
+
+    int fd = (int)(*(my_esp + 1));
+
+    /* Loop thru file list until fd is found */
+    for (iterator = list_begin (cur_file_list);
+         iterator != list_end (cur_file_list);
+         iterator = list_next (iterator))
+      {
+        cur_file = list_entry (iterator, struct file_elem, elem);
+        if (cur_file != NULL && cur_file->fd == fd)
+        {
+          struct inode *inode = file_get_inode (cur_file->file);
+          f->eax = inode_is_dir (inode);
+        }
+      }
+  }
+  else
+  {
+    error_exit (-1);
+  }
+}
+
+static void 
+inumber_handler (struct intr_frame *f)
+{
+  int *my_esp = f->esp;
+  if (valid_ptr (my_esp + 1))
+  {
+    /* Traverse to find given file via fd */
+    struct list_elem *iterator;
+    struct file_elem *cur_file = NULL;
+    struct list *cur_file_list = &thread_current ()->file_list;
+
+    int fd = (int)(*(my_esp + 1));
+
+    /* Loop thru file list until fd is found */
+    for (iterator = list_begin (cur_file_list);
+         iterator != list_end (cur_file_list);
+         iterator = list_next (iterator))
+      {
+        cur_file = list_entry (iterator, struct file_elem, elem);
+        if (cur_file != NULL && cur_file->fd == fd)
+        {
+          struct inode *inode = file_get_inode (cur_file->file);
+          if (inode == NULL)
+          {
+            f->eax = -1;           
+          }
+          else 
+          {
+            f->eax = inode_get_inumber (inode);
+          }
+        }
+      }
+  }
+  else
+  {
+    error_exit (-1);
+  }
+}

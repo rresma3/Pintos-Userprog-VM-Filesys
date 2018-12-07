@@ -350,7 +350,7 @@ inode_expand (struct inode_disk *disk_inode, off_t new_size)
    Returns true if successful.
    Returns false if memory or disk allocation fails. */
 bool
-inode_create (block_sector_t sector, off_t length)
+inode_create (block_sector_t sector, off_t length, bool is_dir)
 {
   struct inode_disk *disk_inode = NULL;
   bool success = false;
@@ -370,6 +370,8 @@ inode_create (block_sector_t sector, off_t length)
       disk_inode->direct_block_index = 0;
       disk_inode->indirect_block_index = 0;
       disk_inode->dbly_indirect_index = 0;
+      disk_inode->parent_dir = ROOT_DIR_SECTOR;
+      disk_inode->is_dir = is_dir;
       
       static char zeros[BLOCK_SECTOR_SIZE];
       /* First find a free sector for our indexed blocks */
@@ -701,6 +703,14 @@ inode_get_open_cnt (struct inode *inode)
   return inode->open_cnt;
 }
 /* End Driving */
+
+/* Sam Driving */
+/* Returns the value of INODE's removed element */
+bool 
+inode_is_removed (struct inode *inode)
+{
+  return inode->removed;
+}
 
 /* Brian Driving */
 /* Wrapper for locking inode struct */

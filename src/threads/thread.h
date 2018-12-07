@@ -127,7 +127,7 @@ struct thread
     /* keep track of fd count */
     int fd_count;
     /* keep track of current thread's directory for relative paths */
-    //struct dir *cwd;
+    struct dir *cwd;
     /* End Sam Driving */
 
 #ifdef USERPROG

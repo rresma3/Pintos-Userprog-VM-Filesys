@@ -5,6 +5,7 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "threads/thread.h"
 
 /* A directory. */
 struct dir 
@@ -30,7 +31,7 @@ bool dir_is_empty (struct inode *inode);
 bool
 dir_create (block_sector_t sector, size_t entry_cnt)
 {
-  return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
+  return inode_create (sector, entry_cnt * sizeof (struct dir_entry), true);
 }
 
 /* Opens and returns the directory for the given INODE, of which
@@ -127,14 +128,33 @@ dir_lookup (const struct dir *dir, const char *name,
 
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
-
+  dir = dir_open_root ();
+  /* Ryan Driving */
   lock_inode (dir_get_inode ((struct dir*) dir));
-  if (lookup (dir, name, &e, NULL))
+  /* Stay in current directory, UNIX semantics */
+  if (!strcmp (name, "."))
+  {
+    *inode = inode_reopen (dir->inode);
+  }
+  /* Go up to parent's directory, UNIX semantics */
+  else if (!strcmp (name, ".."))
+  {
+    /* Find the sector where our parent dir lives */
+    block_sector_t parent_sector = inode_get_parent_dir (dir_get_inode (dir));
+    *inode = inode_open (parent_sector);
+  }
+  /* Regular default directory lookup in original Pintos */
+  else if (lookup (dir, name, &e, NULL))
+  {
     *inode = inode_open (e.inode_sector);
+  }
   else
+  {
     *inode = NULL;
-  unlock_inode (dir_get_inode ((struct dir*) dir));
+  }
 
+  unlock_inode (dir_get_inode ((struct dir*) dir));
+  /* End Driving */
   return *inode != NULL;
 }
 
@@ -264,18 +284,18 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
   struct dir_entry e;
 
-  lock_inode (dir_get_inode (dir));
+  //lock_inode (dir_get_inode (dir));
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
       dir->pos += sizeof e;
       if (e.in_use)
         {
           strlcpy (name, e.name, NAME_MAX + 1);
-          unlock_inode (dir_get_inode (dir));
+          //unlock_inode (dir_get_inode (dir));
           return true;
         } 
     }
-  unlock_inode (dir_get_inode (dir));
+  //unlock_inode (dir_get_inode (dir));
   return false;
 }
 
@@ -299,21 +319,21 @@ dir_is_empty (struct inode *inode)
 }
 /* End Driving */
 
-/* Ryan Driving */
+/* Miles Driving */
 /* Tokenizes a given directory path */
 struct inode* 
 path_to_inode (char *path)
 {
   /* Hard copy of our path */
   int length = strlen (path) + 1;
-  char *path_cpy;
+  char *path_cpy = NULL;
   strlcpy (path_cpy, path, length);
 
   if (length <= 1)
     return false;
 
-  struct dir  *temp_dir;
-  struct inode *temp_inode;
+  struct dir *temp_dir = NULL;
+  struct inode *temp_inode = NULL;
   if (path_cpy[0] == '/')
   {
     temp_dir = dir_open_root ();
@@ -338,7 +358,7 @@ path_to_inode (char *path)
       return NULL;
     }
     //FIXME: idk whats wrong with this
-    if (!temp_inode->is_dir)
+    if (!inode_is_dir (temp_dir->inode))
     {
       /*found the file*/
       dir_close (temp_dir);
@@ -348,7 +368,111 @@ path_to_inode (char *path)
     
     //TODO: make sure we dont have to change the offset
   }
+  return temp_inode;
 }
 /* End Driving */
 
+/* Brian Drivng */
+char *
+path_to_f_name (char *path)
+{
+  /* Hard copy of our path */
+  if (path == NULL)
+    return NULL;
+  int path_length = strlen (path) + 1;
+  char *path_cpy = malloc (path_length);
+  memcpy (path_cpy, path, path_length);
+
+  /* Parsing path tokens */
+  char *save_ptr = NULL;
+  char *token = NULL;
+  char *to_return = "";
+  int f_name_length;
+  char *f_name = NULL;
+
+  /* Parse path, tokenizing between /'s */
+  for (token = strtok_r (path_cpy, "/", &save_ptr); token != NULL;
+       token = strtok_r (NULL, "/", &save_ptr))
+  {
+    to_return = token;
+  }
+
+  ASSERT (to_return != NULL);
+  
+  /* Return f_name */
+  f_name_length = strlen (to_return) + 1;
+  f_name = malloc (f_name_length);
+  memcpy (f_name, to_return, f_name_length);
+  return f_name;
+}
+/* End Driving */
+
+/* Ryan Driving */
+struct dir*
+path_to_dir (char *path)
+{
+  if (path == NULL)
+    return NULL;
+  /* Hard copy of our path */
+  int path_length = strlen (path) + 1;
+
+  char *path_cpy = malloc (path_length);
+  memcpy (path_cpy, path, path_length);
+
+  struct dir *cur_dir = NULL;
+  struct thread *cur_thread = thread_current ();
+
+  /* Absolute path */
+  if (path_cpy[0] == '/')
+  {
+    cur_dir = dir_open_root ();
+  }
+  /* Might be used for initial thread */
+  else if (cur_thread->cwd == NULL)
+  {
+    cur_dir = dir_open_root ();
+  }
+  /* Otherwise we can simply just use our current working directory */
+  else 
+  {
+    cur_dir = dir_reopen (cur_thread->cwd);
+  }
+
+  /* Parsing path tokens */
+  char *save_ptr = NULL;
+  char *token = NULL;
+  char *next_token = NULL;
+
+  token = strtok_r(path_cpy, "/", &save_ptr);
+  if(token) 
+    next_token = strtok_r(NULL, "/", &save_ptr);
+
+  while(next_token)
+  {
+    struct inode *inode;
+
+	  if(!dir_lookup(cur_dir, token, &inode)) 
+      return NULL; // save inode corresponding to token. if fails, return NULL
+
+    if(inode_is_dir(inode))
+    {
+	    dir_close(cur_dir);
+	    cur_dir = dir_open(inode);
+    }
+    else 
+      inode_close(inode);
+    token = next_token;
+    next_token = strtok_r(NULL, "/", &save_ptr);
+  }
+
+  /* Cannot open a removed directory */
+  if (inode_is_removed (dir_get_inode (cur_dir)))
+  {
+    dir_close (cur_dir);
+    cur_dir = NULL;
+  }
+
+  return cur_dir; 
+}
+/* End Driving */
 

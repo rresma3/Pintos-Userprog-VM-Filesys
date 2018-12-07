@@ -102,7 +102,6 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
-  //initial_thread->cwd = dir_open_root ();
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -498,15 +497,17 @@ init_thread (struct thread *t, const char *name, int priority)
   if (strcmp(t->name, "main") == 0)
   {
     t->parent = NULL;
+    /* Do not open root until explicitly using root dir */
+    t->cwd = NULL;
   } 
   else 
   {
     t->parent = thread_current ();
     /* On creation of new child thread, must inherit parent cwd */
-    // if (thread_current ()->cwd != NULL)
-    // {
-    //   t->cwd = thread_current ()->cwd;
-    // }
+    if (thread_current ()->cwd != NULL)
+    {
+      t->cwd = dir_reopen (thread_current ()->cwd);
+    }
   }
 
   /* Ryan end driving */

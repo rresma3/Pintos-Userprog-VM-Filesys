@@ -8,7 +8,7 @@
 struct bitmap;
 
 void inode_init (void);
-bool inode_create (block_sector_t, off_t);
+bool inode_create (block_sector_t, off_t, bool);
 struct inode *inode_open (block_sector_t);
 struct inode *inode_reopen (struct inode *);
 block_sector_t inode_get_inumber (const struct inode *);
@@ -32,6 +32,7 @@ bool inode_is_dir (struct inode *inode);
 block_sector_t inode_get_parent_dir (struct inode *inode);
 void inode_set_parent_dir (struct inode *inode, block_sector_t parent_dir);
 int inode_get_open_cnt (struct inode *inode);
+bool inode_is_removed (struct inode *inode);
 /* End Driving */
 
 #endif /* filesys/inode.h */
